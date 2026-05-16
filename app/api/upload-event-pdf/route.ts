@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { requireApprovedOrganizer } from "@/lib/auth/guards";
 import { jsonError } from "@/lib/http/json-error";
+import { normalizeMagicUploadResponse } from "@/lib/magic-upload-extract";
 
 export const runtime = "nodejs";
 export const maxDuration = 60;
@@ -65,7 +66,7 @@ export async function POST(request: Request) {
     }
 
     try {
-      return NextResponse.json(JSON.parse(text));
+      return NextResponse.json(normalizeMagicUploadResponse(JSON.parse(text)));
     } catch {
       return NextResponse.json({ raw: text });
     }
