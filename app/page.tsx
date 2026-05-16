@@ -1,7 +1,5 @@
-import { CampusMap } from "@/components/campus-map";
-import { EventsSection } from "@/components/events-section";
-import { HeroSection } from "@/components/hero-section";
-import { SidebarFilters } from "@/components/sidebar-filters";
+import { HomeDiscoveryRoot } from "@/components/home-discovery-root";
+import type { EventsBrowserRow } from "@/components/events-browser";
 import { SiteFooter } from "@/components/site-footer";
 import { SiteHeader } from "@/components/site-header";
 import { createClient } from "@/lib/supabase/server";
@@ -30,27 +28,18 @@ export default async function HomePage() {
     .order("is_pinned", { ascending: false })
     .order("start_at", { ascending: true, nullsFirst: false });
 
-  const list = events ?? [];
+  const list = (events ?? []) as EventsBrowserRow[];
 
   return (
     <div className="min-h-screen">
       <SiteHeader />
       <main>
-        <HeroSection />
-        <div className="container mx-auto px-4 py-12">
-          <div className="flex flex-col gap-8 lg:flex-row">
-            <SidebarFilters />
-            <div className="flex-1 space-y-12">
-              <CampusMap
-                gridN={gridN}
-                locations={locRows ?? []}
-                events={list}
-                mapBackgroundUrl={cfg?.map_background_url ?? null}
-              />
-              <EventsSection events={list} />
-            </div>
-          </div>
-        </div>
+        <HomeDiscoveryRoot
+          gridN={gridN}
+          locations={locRows ?? []}
+          events={list}
+          mapBackgroundUrl={cfg?.map_background_url ?? null}
+        />
       </main>
       <SiteFooter />
     </div>
