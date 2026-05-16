@@ -1,5 +1,5 @@
 import Link from "next/link";
-import type { StudentMyEventCard } from "@/app/components/student-dashboard-tabs";
+import type { StudentMerchPurchaseRow, StudentMyEventCard } from "@/app/components/student-dashboard-tabs";
 import { StudentDashboardTabs } from "@/app/components/student-dashboard-tabs";
 import { WhatsappSettingsCard } from "@/app/components/whatsapp-settings";
 import type { HomeEventCard } from "@/components/events-section";
@@ -137,6 +137,35 @@ export default async function StudentDashboardPage() {
       });
   }
 
+  const { data: purchaseRows } = await supabase
+    .from("merch_purchases")
+    .select(
+      "id, event_id, item_name, item_type, item_image_url, price, quantity, size, purchase_date, events(id, title)",
+    )
+    .eq("student_id", user.id)
+    .order("purchase_date", { ascending: false });
+
+  const myPurchases: StudentMerchPurchaseRow[] = (purchaseRows ?? []).map((row) => {
+    const ev = (
+      row as unknown as {
+        events?: { id: string; title: string | null } | { id: string; title: string | null }[] | null;
+      }
+    ).events;
+    const evObj = Array.isArray(ev) ? ev[0] : ev;
+    return {
+      id: row.id,
+      event_id: row.event_id,
+      event_title: evObj?.title?.trim() || evObj?.id || "Event",
+      item_name: row.item_name,
+      item_type: row.item_type ?? null,
+      item_image_url: row.item_image_url ?? null,
+      price: row.price,
+      quantity: row.quantity,
+      size: row.size ?? null,
+      purchase_date: row.purchase_date,
+    };
+  });
+
   return (
     <div className="flex min-h-screen flex-col">
       <SiteHeader />
@@ -170,6 +199,7 @@ export default async function StudentDashboardPage() {
             allEvents={allEvents}
             upcomingEvents={upcomingEvents}
             myRegisteredEvents={myRegisteredEvents}
+            myPurchases={myPurchases}
           />
           <div className="text-center">
             <Link href="/" className="text-sm text-purple-300 hover:underline">

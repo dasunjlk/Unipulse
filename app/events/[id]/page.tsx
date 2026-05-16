@@ -1,7 +1,7 @@
+import Image from "next/image";
 import Link from "next/link";
 import { Calendar, Clock, MapPin, Share2 } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
-import type { Json } from "@/lib/db/database.types";
 import {
   ExportManifestButton,
   MerchBuyButton,
@@ -17,25 +17,9 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
 import { inferEventCategory } from "@/lib/event-display";
+import { isWearable, merchTypeLabel, parseMerchItems } from "@/lib/merch";
 
 type PageProps = { params: { id: string } };
-
-function merchList(raw: Json): { id: string; name: string; price: number }[] {
-  if (!Array.isArray(raw)) return [];
-  return raw
-    .map((x) => {
-      if (typeof x !== "object" || x === null || !("id" in x)) return null;
-      const o = x as Record<string, Json>;
-      const id = String(o.id ?? "");
-      if (!id) return null;
-      return {
-        id,
-        name: String(o.name ?? "Item"),
-        price: Number(o.price ?? 0),
-      };
-    })
-    .filter(Boolean) as { id: string; name: string; price: number }[];
-}
 
 export default async function EventDetailPage({ params }: PageProps) {
   const supabase = createClient();
@@ -76,7 +60,7 @@ export default async function EventDetailPage({ params }: PageProps) {
   const spotsLabel =
     capacity > 0 ? `${registered}/${capacity}` : `${registered} registered`;
 
-  const merch = merchList(event.merch_items);
+  const merch = parseMerchItems(event.merch_items);
   const {
     data: { user },
   } = await supabase.auth.getUser();
@@ -241,17 +225,46 @@ export default async function EventDetailPage({ params }: PageProps) {
 
                 {merch.length > 0 ? (
                   <div className="space-y-2 border-t border-white/10 pt-4">
-                    <p className="text-sm font-medium text-white">Merch (mock)</p>
-                    <ul className="space-y-2">
+                    <p className="text-sm font-medium text-white">Merch</p>
+                    <ul className="space-y-3">
                       {merch.map((m) => (
                         <li
                           key={m.id}
-                          className="flex items-center justify-between text-sm text-muted-foreground"
+                          className="rounded-lg border border-white/10 bg-white/5 p-3 text-sm text-muted-foreground"
                         >
-                          <span>
-                            {m.name} — ${m.price}
-                          </span>
-                          <MerchBuyButton eventId={event.id} itemId={m.id} />
+                          <div className="flex flex-wrap items-start justify-between gap-3">
+                            <div className="flex min-w-0 flex-1 gap-3">
+                              {m.image_url ? (
+                                <div className="relative h-14 w-14 shrink-0 overflow-hidden rounded-md border border-white/10 bg-muted">
+                                  <Image
+                                    src={m.image_url}
+                                    alt=""
+                                    fill
+                                    className="object-cover"
+                                    sizes="56px"
+                                  />
+                                </div>
+                              ) : null}
+                              <div className="min-w-0 space-y-1">
+                              <p className="font-medium text-white">{m.name}</p>
+                              <div className="flex flex-wrap items-center gap-2">
+                                <Badge
+                                  variant="outline"
+                                  className="border-purple-500/40 text-xs text-purple-200"
+                                >
+                                  {merchTypeLabel(m.item_type)}
+                                </Badge>
+                                <span>${m.price.toFixed(2)}</span>
+                              </div>
+                              {m.sizes.length > 0 ? (
+                                <p className="text-xs">Sizes: {m.sizes.join(", ")}</p>
+                              ) : isWearable(m.item_type) ? (
+                                <p className="text-xs">One size</p>
+                              ) : null}
+                              </div>
+                            </div>
+                            <MerchBuyButton eventId={event.id} item={m} />
+                          </div>
                         </li>
                       ))}
                     </ul>

@@ -169,6 +169,11 @@ export interface Database {
           price: string;
           quantity: number;
           purchase_date: string;
+          size: string | null;
+          buyer_full_name: string;
+          buyer_university_id: string | null;
+          item_type: string | null;
+          item_image_url: string | null;
         };
         Insert: {
           id?: string;
@@ -179,9 +184,19 @@ export interface Database {
           price: string | number;
           quantity?: number;
           purchase_date?: string;
+          size?: string | null;
+          buyer_full_name?: string;
+          buyer_university_id?: string | null;
+          item_type?: string | null;
+          item_image_url?: string | null;
         };
         Update: {
           quantity?: number;
+          size?: string | null;
+          buyer_full_name?: string;
+          buyer_university_id?: string | null;
+          item_type?: string | null;
+          item_image_url?: string | null;
         };
         Relationships: [];
       };
@@ -221,6 +236,7 @@ export interface Database {
           p_event_id: string;
           p_item_id: string;
           p_quantity?: number;
+          p_size?: string | null;
         };
         Returns: Json;
       };
