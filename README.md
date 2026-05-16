@@ -19,6 +19,8 @@ Copy [.env.example](.env.example) to `.env.local` and fill in keys from local Su
 | `SUPABASE_SERVICE_ROLE_KEY` | Server-only admin client (auth admin API, onboard callback inserts) |
 | `N8N_BASE_URL` | Base URL for outbound webhooks (ngrok in dev) |
 | `N8N_SHARED_SECRET` | Shared HMAC secret (Next.js ↔ n8n) |
+| `N8N_MAGIC_UPLOAD_URL` | Optional override for Phase 1 PDF extract webhook |
+| `N8N_MERCH_CHECKOUT_URL` | Optional override for Phase 3 student merch purchase webhook |
 
 ## Database & seed
 
@@ -86,7 +88,7 @@ RLS + API guards enforce **approved organizers** for event mutations and **stude
 
 ## n8n
 
-Outbound helpers live in [`lib/n8n.ts`](lib/n8n.ts). Expected paths under `N8N_BASE_URL`:
+Outbound helpers live in [`lib/n8n.ts`](lib/n8n.ts). Merch **checkout** (student completed purchase) posts JSON from [`lib/n8n-merch-checkout.ts`](lib/n8n-merch-checkout.ts) to `N8N_MERCH_CHECKOUT_URL` (default: production `.../webhook/merch-checkout`). Expected paths under `N8N_BASE_URL`:
 
 - `/webhook/proposal-uploaded`
 - `/webhook/organizer-approved`
