@@ -7,6 +7,8 @@ import crypto from "crypto";
  * - POST `/webhook/proposal-uploaded` — organizer uploaded a proposal file URL
  * - POST `/webhook/organizer-approved` — admin approved a pending organizer
  * - POST `/webhook/event-published` — event left draft / became visible to students
+ *   Payload includes `public_url`, full event summary fields, and `organizer` `{ id, full_name, club_name, whatsapp_number }`.
+ *   n8n may POST results to `/api/events/:id/whatsapp-callback` (same `X-N8N-Signature` scheme).
  * - POST `/webhook/merch-manifest-export` — compile merch sheet → PDF email
  *
  * Inbound callbacks (n8n → Next.js) live under `/api/onboard/callback` with header `X-N8N-Signature`.

@@ -56,9 +56,9 @@ export default function AdminLoginPage() {
               <CardContent className="flex gap-3 p-4">
                 <Shield className="mt-0.5 h-5 w-5 shrink-0 text-amber-400" aria-hidden />
                 <div className="space-y-1 text-sm">
-                  <p className="font-semibold text-amber-100">Secure Admin Access</p>
-                  <p className="text-muted-foreground">
-                    Authorized personnel only. All access attempts are logged and monitored.
+                  <p className="text-muted-foreground leading-relaxed">
+                    <span className="font-semibold text-amber-100">Secure Admin Access</span>
+                    {" - "}Authorized Personnel Only. All access attempts are logged and monitored.
                   </p>
                 </div>
               </CardContent>

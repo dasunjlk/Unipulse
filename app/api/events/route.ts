@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { requireApprovedOrganizer } from "@/lib/auth/guards";
-import { triggerWebhook } from "@/lib/n8n";
+import { triggerEnrichedEventPublishedWebhook } from "@/lib/n8n-event-published";
 import type { Database, Json } from "@/lib/db/database.types";
 import { jsonError } from "@/lib/http/json-error";
 
@@ -75,11 +75,7 @@ export async function POST(request: Request) {
     }
 
     if (!data.is_draft) {
-      void triggerWebhook("event-published", {
-        event_id: data.id,
-        title: data.title,
-        organizer_id: data.organizer_id,
-      });
+      void triggerEnrichedEventPublishedWebhook(supabase, data);
     }
 
     return NextResponse.json({ event: data });

@@ -365,10 +365,10 @@ export default async function AdminDashboardPage() {
         <main className="flex-1 space-y-10 px-4 py-8 lg:px-8">
           {/* KPI row */}
           <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
-            <StatCard value={fmt(totalOrganizers ?? 0)} label="Total Organizers" />
-            <StatCard value={fmt(pendingOrganizerRequests ?? 0)} label="Pending Requests" />
-            <StatCard value={fmt(activeEventsCount ?? 0)} label="Active Events" />
-            <StatCard value={fmt(totalStudents ?? 0)} label="Total Students" />
+            <StatCard delta="+12%" value={fmt(totalOrganizers ?? 0)} label="Total Organizers" />
+            <StatCard delta="+5" value={fmt(pendingOrganizerRequests ?? 0)} label="Pending Requests" />
+            <StatCard delta="+8%" value={fmt(activeEventsCount ?? 0)} label="Active Events" />
+            <StatCard delta="+342" value={fmt(totalStudents ?? 0)} label="Total Students" />
             <StatCard delta="+18%" value="$24,580" label="Revenue Overview" />
             <StatCard delta="-2%" deltaPositive={false} value="78.5%" label="Engagement Rate" />
           </section>
@@ -428,8 +428,8 @@ export default async function AdminDashboardPage() {
             </Card>
           </section>
 
-          {/* Organizer snapshot */}
-          <section id="reports">
+          {/* Organizer snapshot + Event Performance (PDF layout) */}
+          <section id="reports" className="grid gap-6 lg:grid-cols-2">
             <Card className="border-white/10 bg-card/50">
               <CardHeader>
                 <CardTitle className="text-white">Organizer snapshot</CardTitle>
@@ -477,6 +477,33 @@ export default async function AdminDashboardPage() {
                     </TableBody>
                   </Table>
                 </div>
+              </CardContent>
+            </Card>
+
+            <Card className="border-white/10 bg-card/50">
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2 text-white">
+                  <BarChart3 className="h-5 w-5 text-purple-400" aria-hidden />
+                  Event Performance
+                </CardTitle>
+                <p className="text-sm text-muted-foreground">
+                  Mock KPI mix for layout — tune against real analytics later.
+                </p>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                {[
+                  { label: "Registrations", pct: 82 },
+                  { label: "Check-ins", pct: 64 },
+                  { label: "Feedback", pct: 41 },
+                ].map((row) => (
+                  <div key={row.label} className="space-y-2">
+                    <div className="flex justify-between text-sm">
+                      <span className="text-muted-foreground">{row.label}</span>
+                      <span className="text-white">{row.pct}%</span>
+                    </div>
+                    <Progress value={row.pct} className="h-2 bg-white/10 [&>div]:bg-blue-500" />
+                  </div>
+                ))}
               </CardContent>
             </Card>
           </section>

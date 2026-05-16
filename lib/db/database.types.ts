@@ -21,6 +21,8 @@ export interface Database {
           role: UserRole;
           account_status: AccountStatus;
           manual_interests: string[];
+          whatsapp_number: string | null;
+          whatsapp_opt_in_at: string | null;
           created_at: string;
         };
         Insert: {
@@ -31,6 +33,8 @@ export interface Database {
           role?: UserRole;
           account_status?: AccountStatus;
           manual_interests?: string[];
+          whatsapp_number?: string | null;
+          whatsapp_opt_in_at?: string | null;
           created_at?: string;
         };
         Update: {
@@ -40,6 +44,8 @@ export interface Database {
           role?: UserRole;
           account_status?: AccountStatus;
           manual_interests?: string[];
+          whatsapp_number?: string | null;
+          whatsapp_opt_in_at?: string | null;
         };
         Relationships: [];
       };
@@ -91,6 +97,7 @@ export interface Database {
           merch_items: Json;
           is_draft: boolean;
           social_caption_staging: string | null;
+          whatsapp_notified_at: string | null;
           created_at: string;
         };
         Insert: {
@@ -112,6 +119,7 @@ export interface Database {
           merch_items?: Json;
           is_draft?: boolean;
           social_caption_staging?: string | null;
+          whatsapp_notified_at?: string | null;
           created_at?: string;
         };
         Update: {
@@ -131,6 +139,7 @@ export interface Database {
           merch_items?: Json;
           is_draft?: boolean;
           social_caption_staging?: string | null;
+          whatsapp_notified_at?: string | null;
         };
         Relationships: [];
       };

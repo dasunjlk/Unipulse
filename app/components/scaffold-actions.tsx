@@ -104,6 +104,7 @@ export function OrganizerSignupForm() {
     e.preventDefault();
     setMsg(null);
     const fd = new FormData(e.currentTarget);
+    const whatsapp_notifications_opt_in = fd.get("whatsapp_notifications_opt_in") === "on";
     const res = await fetch("/api/auth/signup/organizer", {
       method: "POST",
       credentials: "include",
@@ -113,6 +114,8 @@ export function OrganizerSignupForm() {
         full_name: fd.get("full_name"),
         club_name: fd.get("club_name"),
         password: fd.get("password"),
+        whatsapp_number: fd.get("whatsapp_number"),
+        whatsapp_notifications_opt_in,
       }),
     });
     const body = await parseJson(res);
@@ -133,6 +136,32 @@ export function OrganizerSignupForm() {
         <Label htmlFor="club_name">Club name</Label>
         <Input id="club_name" name="club_name" required />
       </div>
+      <div className="space-y-2">
+        <Label htmlFor="whatsapp_number">WhatsApp number</Label>
+        <Input
+          id="whatsapp_number"
+          name="whatsapp_number"
+          type="tel"
+          inputMode="tel"
+          autoComplete="tel"
+          required
+          placeholder="+919876543210"
+          pattern="\+[1-9][0-9]{7,14}"
+          title="E.164: + and country code, then digits (8–15 digits total after +)"
+        />
+        <p className="text-xs text-muted-foreground">
+          Include country code (e.g. +91…). Used when your events are published.
+        </p>
+      </div>
+      <label className="flex items-start gap-2 text-sm text-muted-foreground">
+        <input
+          type="checkbox"
+          name="whatsapp_notifications_opt_in"
+          required
+          className="mt-1 rounded border-white/20 bg-transparent"
+        />
+        <span>I agree to receive event notifications on WhatsApp.</span>
+      </label>
       <div className="space-y-2">
         <Label htmlFor="password_org">Password</Label>
         <Input
