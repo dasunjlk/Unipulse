@@ -9,6 +9,8 @@ export type ProfileRow = {
   role: "student" | "organizer" | "admin";
   account_status: "pending" | "approved" | "rejected";
   manual_interests: string[];
+  whatsapp_number: string | null;
+  whatsapp_consent: boolean;
   created_at: string;
 };
 

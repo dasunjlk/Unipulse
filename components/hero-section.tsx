@@ -1,23 +1,30 @@
-"use client"
+"use client";
 
-import { Search } from "lucide-react"
-import { Input } from "@/components/ui/input"
+import { Search } from "lucide-react";
+import type { FilterCategoryOption } from "@/components/sidebar-filters";
+import { Input } from "@/components/ui/input";
 
-const categories = [
-  { name: "Tech", active: true },
-  { name: "Music", active: false },
-  { name: "Sports", active: false },
-  { name: "Workshops", active: false },
-  { name: "Career", active: false },
-]
+export type HeroSectionProps = {
+  filterCategories: FilterCategoryOption[];
+  selectedCategories?: string[];
+  onToggleCategory?: (id: string) => void;
+  searchQuery?: string;
+  onSearchQueryChange?: (value: string) => void;
+};
 
-export function HeroSection() {
+export function HeroSection({
+  filterCategories,
+  selectedCategories = [],
+  onToggleCategory,
+  searchQuery = "",
+  onSearchQueryChange,
+}: HeroSectionProps) {
   return (
     <section className="relative overflow-hidden py-20 lg:py-32">
       {/* Glowing gradient background */}
       <div className="absolute inset-0 -z-10">
-        <div className="absolute top-1/4 left-1/4 h-96 w-96 rounded-full bg-purple-600/30 blur-3xl" />
-        <div className="absolute top-1/3 right-1/4 h-80 w-80 rounded-full bg-blue-600/20 blur-3xl" />
+        <div className="absolute left-1/4 top-1/4 h-96 w-96 rounded-full bg-purple-600/30 blur-3xl" />
+        <div className="absolute right-1/4 top-1/3 h-80 w-80 rounded-full bg-blue-600/20 blur-3xl" />
         <div className="absolute bottom-1/4 left-1/2 h-72 w-72 rounded-full bg-indigo-600/25 blur-3xl" />
       </div>
 
@@ -33,33 +40,61 @@ export function HeroSection() {
           {/* Search bar */}
           <div className="relative mx-auto mt-10 max-w-xl">
             <div className="absolute inset-0 rounded-2xl bg-gradient-to-r from-purple-500/20 to-blue-500/20 blur-xl" />
-            <div className="relative flex items-center rounded-2xl border border-white/10 bg-card/80 backdrop-blur-xl">
-              <Search className="ml-4 h-5 w-5 text-muted-foreground" />
-              <Input
-                type="text"
-                placeholder="Search events, workshops, meetups..."
-                className="flex-1 border-0 bg-transparent text-base placeholder:text-muted-foreground focus-visible:ring-0 focus-visible:ring-offset-0"
-              />
-            </div>
+            <form
+              className="relative"
+              role="search"
+              aria-label="Search events"
+              onSubmit={(e) => {
+                e.preventDefault();
+              }}
+            >
+              <div className="relative flex items-center rounded-2xl border border-white/10 bg-card/80 backdrop-blur-xl">
+                <Search className="ml-4 h-5 w-5 text-muted-foreground" aria-hidden />
+                <Input
+                  type="search"
+                  placeholder="Search events, workshops, meetups..."
+                  className="flex-1 border-0 bg-transparent text-base placeholder:text-muted-foreground focus-visible:ring-0 focus-visible:ring-offset-0"
+                  value={searchQuery ?? ""}
+                  onChange={(e) => {
+                    onSearchQueryChange?.(e.target.value);
+                  }}
+                  name="event-search"
+                />
+              </div>
+            </form>
           </div>
 
-          {/* Category pills */}
+          {/* Category pills — ids are slugs, aligned with sidebar */}
           <div className="mt-8 flex flex-wrap items-center justify-center gap-3">
-            {categories.map((category) => (
-              <button
-                key={category.name}
-                className={`rounded-full px-5 py-2 text-sm font-medium transition-all duration-300 ${
-                  category.active
-                    ? "bg-gradient-to-r from-purple-600 to-blue-600 text-white shadow-lg shadow-purple-500/25"
-                    : "border border-white/10 bg-white/5 text-muted-foreground hover:border-purple-500/50 hover:bg-white/10 hover:text-white"
-                }`}
-              >
-                {category.name}
-              </button>
-            ))}
+            {filterCategories.map(({ id, label }) => {
+              const active = selectedCategories.includes(id);
+              const handleClick =
+                onToggleCategory != null
+                  ? () => {
+                      onToggleCategory(id);
+                    }
+                  : undefined;
+              return (
+                <button
+                  key={id}
+                  type="button"
+                  onClick={handleClick}
+                  disabled={handleClick == null}
+                  aria-pressed={handleClick ? active : undefined}
+                  aria-label={`Filter ${label} events`}
+                  className={`rounded-full px-5 py-2 text-sm font-medium transition-all duration-300 disabled:opacity-70 ${
+                    active
+                      ? "bg-gradient-to-r from-purple-600 to-blue-600 text-white shadow-lg shadow-purple-500/25"
+                      : "border border-white/10 bg-white/5 text-muted-foreground hover:border-purple-500/50 hover:bg-white/10 hover:text-white disabled:hover:border-white/10 disabled:hover:bg-white/5"
+                  }`}
+                >
+                  {label}
+                </button>
+              );
+            })}
           </div>
         </div>
       </div>
     </section>
-  )
+  );
 }

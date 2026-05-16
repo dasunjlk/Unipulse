@@ -8,8 +8,8 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Spinner } from "@/components/ui/spinner";
-import { categoryGradient } from "@/lib/event-display";
 import {
+  buildEventDescription,
   hasMagicUploadFields,
   normalizeMagicUploadResponse,
   type MagicUploadFields,
@@ -17,6 +17,7 @@ import {
 import { Switch } from "@/components/ui/switch";
 import { findClosestLocation, type LocationLite } from "@/lib/venue-match";
 import { cn } from "@/lib/utils";
+import { inferEventCategory } from "@/lib/event-display";
 
 const MAX_BYTES = 10 * 1024 * 1024;
 
@@ -87,51 +88,11 @@ function DescriptionBlock({ value }: { value: string }) {
   );
 }
 
-function EventResultCard({ data }: { data: MagicUploadFields }) {
-  const scalarFields: { label: string; value: string | undefined }[] = [
-    { label: "Event title", value: data.eventTitle },
-    { label: "Date", value: data.date },
-    { label: "Time", value: data.time },
-    { label: "Venue", value: data.venue },
-    { label: "Agenda", value: data.agenda },
-    { label: "Organizer", value: data.organizerName },
-    { label: "Event type", value: data.eventType },
-  ];
-
-  const categoryLabel = data.category ?? "";
-  const gradient = categoryLabel ? categoryGradient(categoryLabel) : "";
-
-  return (
-    <Card className="border-emerald-500/30 bg-emerald-500/5">
-      <CardHeader className="pb-2">
-        <div className="flex flex-wrap items-center gap-3">
-          <CardTitle className="text-base text-emerald-100">Extracted event details</CardTitle>
-          {categoryLabel ? (
-            <span
-              className={`inline-block rounded-full bg-gradient-to-r px-3 py-1 text-xs font-medium text-white ${gradient}`}
-            >
-              {categoryLabel}
-            </span>
-          ) : null}
-        </div>
-      </CardHeader>
-      <CardContent className="space-y-3">
-        {data.description ? <DescriptionBlock value={data.description} /> : null}
-        {scalarFields.map(({ label, value }) => {
-          if (!value) return null;
-          if (label === "Agenda" && value === data.description) return null;
-          return <FieldRow key={label} label={label} value={value} />;
-        })}
-      </CardContent>
-    </Card>
-  );
-}
-
 function ConfirmCreateEventPanel({
   data,
   onUploadAnother,
 }: {
-  data: EventFields;
+  data: MagicUploadFields;
   onUploadAnother: () => void;
 }) {
   const router = useRouter();
@@ -143,7 +104,14 @@ function ConfirmCreateEventPanel({
   const [submitting, setSubmitting] = useState(false);
   const [submitErr, setSubmitErr] = useState<string | null>(null);
   const [createdId, setCreatedId] = useState<string | null>(null);
+  const [title, setTitle] = useState(String(data.eventTitle ?? "").trim());
   const initRef = useRef(false);
+  const [categoryOptions, setCategoryOptions] = useState<{ id: string; slug: string; label: string }[]>(
+    [],
+  );
+  const [categoriesErr, setCategoriesErr] = useState<string | null>(null);
+  const [selectedCategoryIds, setSelectedCategoryIds] = useState<string[]>([]);
+  const catsInitRef = useRef(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -173,6 +141,57 @@ function ConfirmCreateEventPanel({
   }, []);
 
   useEffect(() => {
+    let cancelled = false;
+    void (async () => {
+      try {
+        const res = await fetch("/api/event-categories");
+        const body = (await res.json()) as {
+          categories?: { id: string; slug: string; label: string }[];
+          error?: string;
+        };
+        if (!res.ok || !body.categories) {
+          throw new Error(body.error ?? "Failed to load categories");
+        }
+        if (!cancelled) {
+          setCategoryOptions(body.categories);
+          setCategoriesErr(null);
+        }
+      } catch (e) {
+        if (!cancelled) {
+          setCategoriesErr(e instanceof Error ? e.message : "Could not load categories.");
+        }
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  useEffect(() => {
+    if (categoryOptions.length === 0 || catsInitRef.current) return;
+    catsInitRef.current = true;
+    const fromPdf = String(data.category ?? "").trim().toLowerCase();
+    const inferred = inferEventCategory(
+      String(data.eventTitle ?? ""),
+      buildEventDescription(data),
+    ).toLowerCase();
+    const hint = fromPdf || inferred;
+    const ids: string[] = [];
+    if (hint) {
+      const dashed = hint.replace(/\s+/g, "-");
+      const bySlug = categoryOptions.find((c) => c.slug === hint || c.slug === dashed);
+      const byLabel = categoryOptions.find((c) => c.label.toLowerCase() === hint);
+      const pick = bySlug ?? byLabel;
+      if (pick) ids.push(pick.id);
+    }
+    if (ids.length === 0) {
+      const campus = categoryOptions.find((c) => c.slug === "campus");
+      if (campus) ids.push(campus.id);
+    }
+    setSelectedCategoryIds(ids);
+  }, [categoryOptions, data]);
+
+  useEffect(() => {
     if (locations.length === 0 || initRef.current) return;
     initRef.current = true;
     const m = findClosestLocation(data.venue, locations);
@@ -182,15 +201,25 @@ function ConfirmCreateEventPanel({
     }
   }, [locations, data.venue]);
 
+  function toggleCategoryId(id: string) {
+    setSelectedCategoryIds((prev) =>
+      prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id],
+    );
+  }
+
   async function handleConfirmCreate() {
     setSubmitErr(null);
-    const title = String(data.eventTitle ?? "").trim();
-    if (!title) {
-      setSubmitErr("Event title is missing.");
+    const cleanTitle = title.trim();
+    if (!cleanTitle) {
+      setSubmitErr("Enter an event title.");
       return;
     }
     if (!locationId.trim()) {
       setSubmitErr("Select a campus location for the map pin.");
+      return;
+    }
+    if (selectedCategoryIds.length === 0) {
+      setSubmitErr("Select at least one category.");
       return;
     }
 
@@ -202,8 +231,8 @@ function ConfirmCreateEventPanel({
         credentials: "include",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          title,
-          description: data.agenda ?? "",
+          title: cleanTitle,
+          description: buildEventDescription(data),
           venue: data.venue?.trim() ? data.venue.trim() : null,
           start_at,
           end_at: null,
@@ -211,6 +240,7 @@ function ConfirmCreateEventPanel({
           is_open_event: true,
           ticket_capacity: 0,
           is_draft: !publishNow,
+          category_ids: selectedCategoryIds,
         }),
       });
       const body = await parseJson(res);
@@ -234,7 +264,6 @@ function ConfirmCreateEventPanel({
   }
 
   const summaryRows: { label: string; value: string | undefined }[] = [
-    { label: "Title", value: data.eventTitle },
     { label: "Date", value: data.date },
     { label: "Time", value: data.time },
     { label: "Venue (from PDF)", value: data.venue },
@@ -278,10 +307,60 @@ function ConfirmCreateEventPanel({
       </CardHeader>
       <CardContent className="space-y-4">
         <div className="space-y-3 rounded-lg border border-white/10 bg-black/20 p-3">
-          {summaryRows.map(
-            ({ label, value }) =>
-              value ? <FieldRow key={label} label={label} value={value} /> : null,
+          <div className="space-y-2">
+            <Label htmlFor="magic-title">Title</Label>
+            <Input
+              id="magic-title"
+              value={title}
+              onChange={(e) => setTitle(e.target.value)}
+              placeholder="Event title"
+              autoComplete="off"
+            />
+            {!data.eventTitle?.trim() ? (
+              <p className="text-xs text-amber-200/90">
+                No title found in the PDF — please enter one.
+              </p>
+            ) : null}
+          </div>
+          {data.description ? <DescriptionBlock value={data.description} /> : null}
+          {summaryRows.map(({ label, value }) => {
+            if (!value) return null;
+            if (label === "Agenda" && value === data.description) return null;
+            return <FieldRow key={label} label={label} value={value} />;
+          })}
+        </div>
+
+        <div className="space-y-2">
+          <Label>Categories</Label>
+          {categoriesErr ? (
+            <p className="text-xs text-destructive">{categoriesErr}</p>
+          ) : categoryOptions.length === 0 ? (
+            <p className="text-xs text-muted-foreground">Loading categories…</p>
+          ) : (
+            <div className="flex flex-wrap gap-2">
+              {categoryOptions.map((c) => {
+                const on = selectedCategoryIds.includes(c.id);
+                return (
+                  <button
+                    key={c.id}
+                    type="button"
+                    onClick={() => toggleCategoryId(c.id)}
+                    className={cn(
+                      "rounded-full border px-3 py-1.5 text-xs font-medium transition-colors",
+                      on
+                        ? "border-purple-500 bg-purple-500/20 text-white"
+                        : "border-white/15 bg-white/5 text-muted-foreground hover:border-white/25",
+                    )}
+                  >
+                    {c.label}
+                  </button>
+                );
+              })}
+            </div>
           )}
+          <p className="text-xs text-muted-foreground">
+            Suggested from the PDF when possible — adjust before creating.
+          </p>
         </div>
 
         <div className="space-y-2">
@@ -333,7 +412,16 @@ function ConfirmCreateEventPanel({
 
         <Button
           type="button"
-          disabled={!locationId.trim() || submitting || !!loadErr || locations.length === 0}
+          disabled={
+            !title.trim() ||
+            !locationId.trim() ||
+            selectedCategoryIds.length === 0 ||
+            submitting ||
+            !!loadErr ||
+            locations.length === 0 ||
+            !!categoriesErr ||
+            categoryOptions.length === 0
+          }
           className="w-full border-0 bg-gradient-to-r from-purple-600 to-blue-600 text-white"
           onClick={() => void handleConfirmCreate()}
         >
@@ -428,10 +516,7 @@ export function MagicUploadForm() {
   const showForm = state === "idle" || state === "uploading" || state === "error";
   const rawResult = result as unknown as Record<string, unknown> | null;
 
-  const extracted =
-    result && isEventFields(result) && hasKnownFields(result) ? (result as EventFields) : null;
-  const canCreateFromExtraction =
-    extracted && String(extracted.eventTitle ?? "").trim().length > 0;
+  const extracted = result && hasMagicUploadFields(result) ? result : null;
   const confirmPanelKey = extracted
     ? [
         extracted.eventTitle ?? "",
@@ -506,8 +591,12 @@ export function MagicUploadForm() {
               </p>
             </div>
           ) : null}
-          {hasMagicUploadFields(result) ? (
-            <EventResultCard data={result} />
+          {extracted ? (
+            <ConfirmCreateEventPanel
+              key={confirmPanelKey}
+              data={extracted}
+              onUploadAnother={handleRetry}
+            />
           ) : rawResult && !isWorkflowStartedOnly(rawResult) && !isMockApiResponse(rawResult) ? (
             <Card className="border-white/10 bg-white/5">
               <CardHeader className="pb-2">
@@ -519,13 +608,6 @@ export function MagicUploadForm() {
                 </pre>
               </CardContent>
             </Card>
-          ) : null}
-          {canCreateFromExtraction && extracted ? (
-            <ConfirmCreateEventPanel
-              key={confirmPanelKey}
-              data={extracted}
-              onUploadAnother={handleRetry}
-            />
           ) : null}
           <Button type="button" variant="outline" size="sm" onClick={handleRetry}>
             Upload another PDF

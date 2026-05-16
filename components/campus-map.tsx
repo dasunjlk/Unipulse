@@ -21,6 +21,8 @@ export type CampusMapLocation = {
   grid_col: number;
 };
 
+export type CampusMapMode = "view" | "pick-empty" | "pick-location";
+
 function lineFromIndex(i: number, n: number) {
   return Math.min(n, Math.max(1, i + 1));
 }
@@ -37,6 +39,12 @@ export function CampusMap({
   events,
   mapBackgroundUrl,
   hideHeading = false,
+  mode = "view",
+  selectedCoord = null,
+  selectedLocationId = null,
+  onPickEmpty,
+  onPickLocation,
+  showPins,
 }: {
   gridN: number;
   locations: CampusMapLocation[];
@@ -44,8 +52,17 @@ export function CampusMap({
   mapBackgroundUrl?: string | null;
   /** When nested inside admin preview, omit outer title */
   hideHeading?: boolean;
+  mode?: CampusMapMode;
+  selectedCoord?: { row: number; col: number } | null;
+  selectedLocationId?: string | null;
+  onPickEmpty?: (row: number, col: number) => void;
+  onPickLocation?: (loc: CampusMapLocation) => void;
+  /** Defaults to true when `mode` is `"view"`, otherwise false */
+  showPins?: boolean;
 }) {
   const [hoveredKey, setHoveredKey] = useState<string | null>(null);
+
+  const showPinsResolved = showPins ?? mode === "view";
 
   const cells = gridN * gridN;
 
@@ -105,6 +122,13 @@ export function CampusMap({
   const cellBase =
     "flex min-h-0 flex-col items-center justify-center gap-0.5 rounded-lg border px-1 py-2 text-center transition-colors";
 
+  const selectedEmpty =
+    selectedCoord != null &&
+    selectedCoord.row >= 0 &&
+    selectedCoord.col >= 0 &&
+    selectedCoord.row < gridN &&
+    selectedCoord.col < gridN;
+
   return (
     <section>
       {!hideHeading ? (
@@ -129,10 +153,10 @@ export function CampusMap({
                 <img
                   src={mapBackgroundUrl}
                   alt=""
-                  className="pointer-events-none absolute inset-6 z-0 rounded-lg object-cover opacity-50 select-none"
+                  className="pointer-events-none absolute inset-0 z-0 rounded-lg object-cover opacity-50 select-none"
                 />
                 <div
-                  className="pointer-events-none absolute inset-6 z-[1] rounded-lg bg-background/65"
+                  className="pointer-events-none absolute inset-0 z-[1] rounded-lg bg-background/65"
                   aria-hidden
                 />
               </>
@@ -147,82 +171,154 @@ export function CampusMap({
                 const col = i % gridN;
                 const loc = locationsByCoord.get(`${row}-${col}`);
                 const hasLoc = !!loc;
-                return (
-                  <div
-                    key={i}
-                    className={`${cellBase} ${
-                      hasLoc
-                        ? "pointer-events-none border-purple-400/25 bg-purple-950/35"
-                        : "pointer-events-none border-white/5 bg-white/[0.02] opacity-40"
-                    }`}
-                  >
-                    {hasLoc ? (
-                      <>
+                const isSelEmpty =
+                  mode === "pick-empty" &&
+                  selectedEmpty &&
+                  selectedCoord!.row === row &&
+                  selectedCoord!.col === col;
+                const isSelLoc =
+                  mode === "pick-location" &&
+                  hasLoc &&
+                  selectedLocationId != null &&
+                  selectedLocationId !== "" &&
+                  loc!.id === selectedLocationId;
+
+                if (mode === "view") {
+                  return (
+                    <div
+                      key={i}
+                      className={`${cellBase} ${
+                        hasLoc
+                          ? "pointer-events-none border-purple-400/25 bg-purple-950/35"
+                          : "pointer-events-none border-white/5 bg-white/[0.02] opacity-40"
+                      }`}
+                    >
+                      {hasLoc ? (
+                        <>
+                          <span className="w-full truncate text-[10px] font-semibold uppercase tracking-wide text-purple-200">
+                            {loc!.code}
+                          </span>
+                          <span className="line-clamp-2 max-w-full text-[11px] font-medium leading-tight text-white/90">
+                            {loc!.name}
+                          </span>
+                        </>
+                      ) : null}
+                    </div>
+                  );
+                }
+
+                if (mode === "pick-empty") {
+                  if (hasLoc) {
+                    return (
+                      <div
+                        key={i}
+                        className={`${cellBase} pointer-events-none border-purple-400/25 bg-purple-950/35`}
+                      >
                         <span className="w-full truncate text-[10px] font-semibold uppercase tracking-wide text-purple-200">
                           {loc!.code}
                         </span>
                         <span className="line-clamp-2 max-w-full text-[11px] font-medium leading-tight text-white/90">
                           {loc!.name}
                         </span>
-                      </>
-                    ) : null}
-                  </div>
+                      </div>
+                    );
+                  }
+                  return (
+                    <button
+                      key={i}
+                      type="button"
+                      onClick={() => onPickEmpty?.(row, col)}
+                      className={`${cellBase} cursor-pointer border-dashed border-white/15 bg-transparent opacity-100 hover:bg-white/[0.04] ${isSelEmpty ? "ring-2 ring-amber-400 ring-offset-2 ring-offset-background/80" : ""}`}
+                      aria-label={`Select empty grid cell row ${row}, column ${col}`}
+                    />
+                  );
+                }
+
+                // pick-location
+                if (hasLoc) {
+                  return (
+                    <button
+                      key={i}
+                      type="button"
+                      onClick={() => onPickLocation?.(loc!)}
+                      title={`${loc!.code} · ${loc!.name}`}
+                      className={`${cellBase} cursor-pointer border-purple-400/25 bg-purple-950/35 hover:bg-purple-900/45 ${isSelLoc ? "ring-2 ring-purple-400 ring-offset-2 ring-offset-background/80" : ""}`}
+                    >
+                      <span className="w-full truncate text-[10px] font-semibold uppercase tracking-wide text-purple-200">
+                        {loc!.code}
+                      </span>
+                      <span className="line-clamp-2 max-w-full text-[11px] font-medium leading-tight text-white/90">
+                        {loc!.name}
+                      </span>
+                    </button>
+                  );
+                }
+                return (
+                  <button
+                    key={i}
+                    type="button"
+                    disabled
+                    className={`${cellBase} cursor-not-allowed border-white/5 bg-black/55 opacity-[0.25]`}
+                    aria-hidden
+                  />
                 );
               })}
             </div>
 
-            <div
-              className="pointer-events-none absolute inset-6 grid gap-2"
-              style={gridStyle}
-            >
-              {Array.from(pinsByCoord.entries()).map(([coord, list]) => {
-                const [rowStr, colStr] = coord.split("-");
-                const row = Number(rowStr);
-                const col = Number(colStr);
-                const top = list[0];
-                if (!top) return null;
-                const extra = list.length - 1;
-                const hoverKey = coord;
-                return (
-                  <div
-                    key={coord}
-                    className="pointer-events-auto relative z-20"
-                    style={{
-                      gridRow: lineFromIndex(row, gridN),
-                      gridColumn: lineFromIndex(col, gridN),
-                    }}
-                    onMouseEnter={() => setHoveredKey(hoverKey)}
-                    onMouseLeave={() => setHoveredKey(null)}
-                  >
-                    <div className="absolute inset-0 flex items-center justify-center">
-                      <div className="relative">
-                        <div className="absolute inset-0 h-8 w-8 animate-pulse-glow rounded-full bg-purple-500/50 blur-md" />
-                        <div className="relative flex h-8 w-8 cursor-pointer items-center justify-center rounded-full bg-gradient-to-br from-purple-500 to-blue-500 shadow-lg shadow-purple-500/30 transition-transform hover:scale-110">
-                          <MapPin className="h-4 w-4 text-white" />
-                        </div>
-
-                        {hoveredKey === hoverKey && (
-                          <div className="absolute bottom-full left-1/2 z-50 mb-2 w-max max-w-[min(16rem,calc(100vw-2rem))] -translate-x-1/2 whitespace-normal rounded-lg border border-white/10 bg-card/95 px-3 py-2 text-left text-sm shadow-xl backdrop-blur-xl">
-                            <p className="font-semibold text-white">
-                              <Link href={`/events/${top.id}`} className="hover:underline">
-                                {top.title}
-                              </Link>
-                            </p>
-                            <p className="text-xs text-muted-foreground">
-                              {top.venue ?? locationsByCoord.get(coord)?.name ?? "Campus"}
-                            </p>
-                            {extra > 0 ? (
-                              <p className="mt-1 text-xs text-purple-300">+{extra} more here</p>
-                            ) : null}
-                            <div className="absolute left-1/2 top-full -translate-x-1/2 border-4 border-transparent border-t-card/95" />
+            {showPinsResolved ? (
+              <div
+                className="pointer-events-none absolute inset-0 grid gap-2"
+                style={gridStyle}
+              >
+                {Array.from(pinsByCoord.entries()).map(([coord, list]) => {
+                  const [rowStr, colStr] = coord.split("-");
+                  const row = Number(rowStr);
+                  const col = Number(colStr);
+                  const top = list[0];
+                  if (!top) return null;
+                  const extra = list.length - 1;
+                  const hoverKey = coord;
+                  return (
+                    <div
+                      key={coord}
+                      className="pointer-events-auto relative z-20"
+                      style={{
+                        gridRow: lineFromIndex(row, gridN),
+                        gridColumn: lineFromIndex(col, gridN),
+                      }}
+                      onMouseEnter={() => setHoveredKey(hoverKey)}
+                      onMouseLeave={() => setHoveredKey(null)}
+                    >
+                      <div className="absolute inset-0 flex items-center justify-center">
+                        <div className="relative">
+                          <div className="absolute inset-0 h-8 w-8 animate-pulse-glow rounded-full bg-purple-500/50 blur-md" />
+                          <div className="relative flex h-8 w-8 cursor-pointer items-center justify-center rounded-full bg-gradient-to-br from-purple-500 to-blue-500 shadow-lg shadow-purple-500/30 transition-transform hover:scale-110">
+                            <MapPin className="h-4 w-4 text-white" />
                           </div>
-                        )}
+
+                          {hoveredKey === hoverKey && (
+                            <div className="absolute bottom-full left-1/2 z-50 mb-2 w-max max-w-[min(16rem,calc(100vw-2rem))] -translate-x-1/2 whitespace-normal rounded-lg border border-white/10 bg-card/95 px-3 py-2 text-left text-sm shadow-xl backdrop-blur-xl">
+                              <p className="font-semibold text-white">
+                                <Link href={`/events/${top.id}`} className="hover:underline">
+                                  {top.title}
+                                </Link>
+                              </p>
+                              <p className="text-xs text-muted-foreground">
+                                {top.venue ?? locationsByCoord.get(coord)?.name ?? "Campus"}
+                              </p>
+                              {extra > 0 ? (
+                                <p className="mt-1 text-xs text-purple-300">+{extra} more here</p>
+                              ) : null}
+                              <div className="absolute left-1/2 top-full -translate-x-1/2 border-4 border-transparent border-t-card/95" />
+                            </div>
+                          )}
+                        </div>
                       </div>
                     </div>
-                  </div>
-                );
-              })}
-            </div>
+                  );
+                })}
+              </div>
+            ) : null}
           </div>
 
           <div className="mt-4 flex flex-wrap items-center gap-4 text-xs text-muted-foreground">
