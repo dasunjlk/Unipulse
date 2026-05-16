@@ -2,7 +2,6 @@ import Link from "next/link";
 import type { ReactNode } from "react";
 import { createClient } from "@/lib/supabase/server";
 import {
-  LogoutButton,
   ProposalUploadForm,
   PublishEventButton,
   ExportManifestButton,
@@ -96,14 +95,13 @@ export default async function OrganizerDashboardPage() {
       <SiteHeader />
       <main className="flex-1">
         <div className="border-b border-white/10 bg-card/30">
-          <div className="container mx-auto flex flex-wrap items-center justify-between gap-4 px-4 py-8">
+          <div className="container mx-auto px-4 py-8">
             <div>
               <h1 className="text-3xl font-bold text-white">Organizer dashboard</h1>
               <p className="mt-1 text-muted-foreground">
                 Welcome back{profile.full_name ? `, ${profile.full_name}` : ""}
               </p>
             </div>
-            <LogoutButton />
           </div>
         </div>
 

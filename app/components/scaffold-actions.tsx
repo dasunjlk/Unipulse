@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -16,6 +17,7 @@ async function parseJson(res: Response) {
 }
 
 export function LogoutButton() {
+  const router = useRouter();
   const [msg, setMsg] = useState<string | null>(null);
 
   async function logout() {
@@ -25,7 +27,11 @@ export function LogoutButton() {
       credentials: "include",
     });
     const body = await parseJson(res);
-    setMsg(res.ok ? "Logged out." : String(body.error ?? res.status));
+    if (res.ok) {
+      router.push("/");
+      return;
+    }
+    setMsg(String(body.error ?? res.status));
   }
 
   return (

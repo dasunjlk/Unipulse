@@ -1,6 +1,5 @@
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
-import { LogoutButton } from "@/app/components/scaffold-actions";
 import { SiteFooter } from "@/components/site-footer";
 import { SiteHeader } from "@/components/site-header";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -52,7 +51,6 @@ export default async function OrganizerPendingPage() {
               <span className="text-muted-foreground">Status:</span>{" "}
               <span className="text-white">{profile?.account_status ?? "unknown"}</span>
             </p>
-            <LogoutButton />
             <div className="flex flex-wrap gap-4 text-sm">
               <Link href="/dashboard/organizer" className="text-purple-300 hover:underline">
                 Try dashboard
