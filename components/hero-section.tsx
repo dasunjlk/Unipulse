@@ -1,10 +1,11 @@
 "use client";
 
 import { Search } from "lucide-react";
-import { SIDEBAR_CATEGORIES } from "@/components/sidebar-filters";
+import type { FilterCategoryOption } from "@/components/sidebar-filters";
 import { Input } from "@/components/ui/input";
 
 export type HeroSectionProps = {
+  filterCategories: FilterCategoryOption[];
   selectedCategories?: string[];
   onToggleCategory?: (id: string) => void;
   searchQuery?: string;
@@ -12,6 +13,7 @@ export type HeroSectionProps = {
 };
 
 export function HeroSection({
+  filterCategories,
   selectedCategories = [],
   onToggleCategory,
   searchQuery = "",
@@ -62,9 +64,9 @@ export function HeroSection({
             </form>
           </div>
 
-          {/* Category pills — same IDs as sidebar for shared filtering */}
+          {/* Category pills — ids are slugs, aligned with sidebar */}
           <div className="mt-8 flex flex-wrap items-center justify-center gap-3">
-            {SIDEBAR_CATEGORIES.map(({ id, label }) => {
+            {filterCategories.map(({ id, label }) => {
               const active = selectedCategories.includes(id);
               const handleClick =
                 onToggleCategory != null

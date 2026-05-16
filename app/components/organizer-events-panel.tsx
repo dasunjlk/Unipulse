@@ -37,6 +37,7 @@ export type OrganizerEventRowSerialized = {
   grid_col: number;
   ticket_capacity: number;
   registrationCount: number;
+  category_ids: string[];
 };
 
 async function parseJson(res: Response) {
@@ -76,6 +77,7 @@ export function OrganizerEventsPanel({
         is_open_event: editingRow.is_open_event,
         ticket_capacity: editingRow.ticket_capacity,
         is_draft: editingRow.is_draft,
+        category_ids: editingRow.category_ids,
       }
     : null;
 

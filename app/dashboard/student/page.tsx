@@ -3,26 +3,31 @@ import type { StudentMyEventCard } from "@/app/components/student-dashboard-tabs
 import { StudentDashboardTabs } from "@/app/components/student-dashboard-tabs";
 import { WhatsappSettingsCard } from "@/app/components/whatsapp-settings";
 import type { HomeEventCard } from "@/components/events-section";
+import { CampusMap } from "@/components/campus-map";
 import { SiteFooter } from "@/components/site-footer";
 import { SiteHeader } from "@/components/site-header";
 import { createClient } from "@/lib/supabase/server";
 import { storedWhatsappToDisplay } from "@/lib/auth/phone";
+import { EVENT_CATEGORY_LINKS_SELECT, flattenLinkedCategories } from "@/lib/event-categories";
 
 function eventSelectFields() {
-  return "id,title,description,start_at,venue,upvote_count,is_open_event,is_pinned,is_draft" as const;
+  return `id,title,description,start_at,venue,upvote_count,is_open_event,is_pinned,is_draft,grid_row,grid_col,${EVENT_CATEGORY_LINKS_SELECT}` as const;
 }
 
-function rowsToCards(
-  rows: {
-    id: string;
-    title: string | null;
-    description: string | null;
-    start_at: string | null;
-    venue: string | null;
-    upvote_count: number | null;
-    is_open_event: boolean | null;
-  }[],
-): HomeEventCard[] {
+type StudentEventRow = {
+  id: string;
+  title: string | null;
+  description: string | null;
+  start_at: string | null;
+  venue: string | null;
+  upvote_count: number | null;
+  is_open_event: boolean | null;
+  is_draft?: boolean | null;
+  grid_row?: number | null;
+  grid_col?: number | null;
+};
+
+function rowsToCards(rows: StudentEventRow[]): HomeEventCard[] {
   return rows.map((e) => ({
     id: e.id,
     title: e.title ?? "",
@@ -31,6 +36,9 @@ function rowsToCards(
     venue: e.venue,
     upvote_count: e.upvote_count ?? 0,
     is_open_event: Boolean(e.is_open_event),
+    categories: flattenLinkedCategories(
+      e as unknown as Parameters<typeof flattenLinkedCategories>[0],
+    ),
   }));
 }
 
@@ -78,23 +86,39 @@ export default async function StudentDashboardPage() {
 
   const fields = eventSelectFields();
 
-  const { data: allRows } = await supabase
-    .from("events")
-    .select(fields)
-    .eq("is_draft", false)
-    .order("is_pinned", { ascending: false })
-    .order("start_at", { ascending: true, nullsFirst: false });
+  const [{ data: cfg }, { data: locRows }, { data: allRows }] = await Promise.all([
+    supabase.from("app_config").select("grid_n, map_background_url").eq("id", 1).single(),
+    supabase
+      .from("locations")
+      .select("id,name,code,grid_row,grid_col")
+      .order("grid_row", { ascending: true })
+      .order("grid_col", { ascending: true }),
+    supabase
+      .from("events")
+      .select(fields)
+      .eq("is_draft", false)
+      .order("is_pinned", { ascending: false })
+      .order("start_at", { ascending: true, nullsFirst: false }),
+  ]);
 
-  const allEvents = rowsToCards(allRows ?? []);
+  const allEvents = rowsToCards((allRows ?? []) as StudentEventRow[]);
+
+  const campusMapEvents = ((allRows ?? []) as StudentEventRow[]).map((e) => ({
+    id: e.id,
+    title: e.title ?? "",
+    venue: e.venue,
+    grid_row: Number(e.grid_row ?? 0),
+    grid_col: Number(e.grid_col ?? 0),
+    start_at: e.start_at,
+  }));
 
   const now = new Date();
   const horizon = new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000);
-  const upcomingRows =
-    allRows?.filter((e) => {
-      if (!e.start_at) return false;
-      const t = new Date(e.start_at).getTime();
-      return !Number.isNaN(t) && t >= now.getTime() && t <= horizon.getTime();
-    }) ?? [];
+  const upcomingRows = ((allRows ?? []) as StudentEventRow[]).filter((e) => {
+    if (!e.start_at) return false;
+    const t = new Date(e.start_at).getTime();
+    return !Number.isNaN(t) && t >= now.getTime() && t <= horizon.getTime();
+  });
 
   const upcomingEvents = rowsToCards(upcomingRows);
 
@@ -128,6 +152,9 @@ export default async function StudentDashboardPage() {
           upvote_count: ev.upvote_count ?? 0,
           is_open_event: Boolean(ev.is_open_event),
           registeredAt,
+          categories: flattenLinkedCategories(
+            ev as unknown as Parameters<typeof flattenLinkedCategories>[0],
+          ),
         };
       })
       .sort((a, b) => {
@@ -166,6 +193,12 @@ export default async function StudentDashboardPage() {
               />
             </>
           ) : null}
+          <CampusMap
+            gridN={cfg?.grid_n ?? 10}
+            locations={locRows ?? []}
+            events={campusMapEvents}
+            mapBackgroundUrl={cfg?.map_background_url ?? null}
+          />
           <StudentDashboardTabs
             allEvents={allEvents}
             upcomingEvents={upcomingEvents}

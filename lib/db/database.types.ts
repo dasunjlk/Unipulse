@@ -140,6 +140,49 @@ export interface Database {
         };
         Relationships: [];
       };
+      event_categories: {
+        Row: {
+          id: string;
+          slug: string;
+          label: string;
+          gradient: string;
+          sort_order: number;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          slug: string;
+          label: string;
+          gradient?: string;
+          sort_order?: number;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          slug?: string;
+          label?: string;
+          gradient?: string;
+          sort_order?: number;
+          updated_at?: string;
+        };
+        Relationships: [];
+      };
+      event_category_links: {
+        Row: {
+          event_id: string;
+          category_id: string;
+        };
+        Insert: {
+          event_id: string;
+          category_id: string;
+        };
+        Update: {
+          event_id?: string;
+          category_id?: string;
+        };
+        Relationships: [];
+      };
       registrations: {
         Row: {
           id: string;

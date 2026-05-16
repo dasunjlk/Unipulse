@@ -50,7 +50,14 @@ export function LocationsAdminPanel({
   const [locations, setLocations] = useState<CampusMapLocation[]>([]);
   const [eventCountsByLoc, setEventCountsByLoc] = useState<Record<string, number>>({});
   const [mapBgUrl, setMapBgUrl] = useState<string | null>(null);
+  const [liveGridN, setLiveGridN] = useState<number | null>(null);
   const [msg, setMsg] = useState<string | null>(null);
+
+  useEffect(() => {
+    setLiveGridN(null);
+  }, [gridN]);
+
+  const effectiveGridN = liveGridN ?? gridN;
 
   async function reload() {
     setMsg(null);
@@ -79,8 +86,9 @@ export function LocationsAdminPanel({
     }
 
     if (cfgRes.ok && cfgBody.config && typeof cfgBody.config === "object") {
-      const c = cfgBody.config as { map_background_url?: string | null };
+      const c = cfgBody.config as { map_background_url?: string | null; grid_n?: number };
       setMapBgUrl(c.map_background_url ?? null);
+      if (typeof c.grid_n === "number") setLiveGridN(c.grid_n);
     }
   }
 
@@ -95,13 +103,20 @@ export function LocationsAdminPanel({
     <div className="space-y-6">
       <div className="grid gap-6 lg:grid-cols-2">
         <MapBackgroundCard mapBgUrl={mapBgUrl} onChanged={() => void reload()} onMsg={setMsg} />
-        <GridEditorCard gridN={gridN} occupiedCells={occupiedCells} onSaved={() => void reload()} onMsg={setMsg} />
+        <GridEditorCard
+          gridN={effectiveGridN}
+          locations={locations}
+          mapBgUrl={mapBgUrl}
+          occupiedCells={occupiedCells}
+          onSaved={() => void reload()}
+          onMsg={setMsg}
+        />
       </div>
 
       <LocationsTable
         rows={locations}
         eventCountsByLoc={eventCountsByLoc}
-        gridN={gridN}
+        gridN={effectiveGridN}
         onChanged={() => {
           router.refresh();
           void reload();
@@ -110,7 +125,7 @@ export function LocationsAdminPanel({
       />
 
       <ManualLocationCard
-        gridN={gridN}
+        gridN={effectiveGridN}
         occupiedCells={occupiedCells}
         onSaved={() => {
           router.refresh();
@@ -125,13 +140,13 @@ export function LocationsAdminPanel({
         <CardHeader>
           <CardTitle className="text-white">Campus preview</CardTitle>
           <CardDescription>
-            Mirrors the student home grid using live locations ({gridN}×{gridN}).
+            Mirrors the student home grid using live locations ({effectiveGridN}×{effectiveGridN}).
           </CardDescription>
         </CardHeader>
         <CardContent>
           <CampusMap
             hideHeading
-            gridN={gridN}
+            gridN={effectiveGridN}
             locations={locations}
             events={[]}
             mapBackgroundUrl={mapBgUrl}
@@ -247,20 +262,20 @@ function ManualLocationCard({
 
 function GridEditorCard({
   gridN,
+  locations,
+  mapBgUrl,
   occupiedCells,
   onSaved,
   onMsg,
 }: {
   gridN: number;
+  locations: CampusMapLocation[];
+  mapBgUrl: string | null;
   occupiedCells: Set<string>;
   onSaved: () => void;
   onMsg: (s: string | null) => void;
 }) {
   const [picked, setPicked] = useState<{ row: number; col: number } | null>(null);
-  const gridStyle = {
-    gridTemplateColumns: `repeat(${gridN}, minmax(0, 1fr))`,
-    gridTemplateRows: `repeat(${gridN}, minmax(0, 1fr))`,
-  } as const;
 
   return (
     <Card className="border-white/10 bg-card/50">
@@ -272,32 +287,18 @@ function GridEditorCard({
         <p className="text-xs text-muted-foreground">
           Existing locations are tinted; dashed cells can become new pins.
         </p>
-        <div
-          className="grid aspect-[5/4] max-h-[360px] w-full gap-1 rounded-xl border border-white/10 bg-black/35 p-2"
-          style={gridStyle}
-        >
-          {Array.from({ length: gridN * gridN }).map((_, i) => {
-            const row = Math.floor(i / gridN);
-            const col = i % gridN;
-            const coord = `${row}-${col}`;
-            const occ = occupiedCells.has(coord);
-            const sel = picked?.row === row && picked?.col === col;
-            return (
-              <button
-                key={coord}
-                type="button"
-                onClick={() => {
-                  if (occ) return;
-                  setPicked(sel ? null : { row, col });
-                }}
-                className={`min-h-0 rounded-md border transition-colors ${
-                  occ ? "cursor-not-allowed border-purple-900/35 bg-purple-950/55" : "border-dashed border-white/15 bg-transparent hover:bg-white/[0.04]"
-                } ${sel ? "ring-2 ring-amber-400" : ""}`}
-                disabled={occ}
-              />
-            );
-          })}
-        </div>
+        <CampusMap
+          hideHeading
+          mode="pick-empty"
+          gridN={gridN}
+          locations={locations}
+          events={[]}
+          mapBackgroundUrl={mapBgUrl}
+          selectedCoord={picked}
+          onPickEmpty={(row, col) =>
+            setPicked((prev) => (prev?.row === row && prev?.col === col ? null : { row, col }))
+          }
+        />
         {!picked ? (
           <p className="text-xs text-muted-foreground">
             Tap a dashed empty cell above, then confirm with name & code below.

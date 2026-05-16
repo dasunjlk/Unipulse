@@ -4,6 +4,7 @@ import { createClient } from "@/lib/supabase/server";
 import { AdminEventsPanel } from "@/app/components/admin-events-panel";
 import { AdminOrganizersPanel, GridConfigForm } from "@/app/components/admin-panel";
 import { AdminUsersPanel } from "@/app/components/admin-users-panel";
+import { CategoriesAdminPanel } from "@/app/components/categories-admin-panel";
 import { LocationsAdminPanel } from "@/app/components/locations-admin-panel";
 import { LogoutButton } from "@/app/components/scaffold-actions";
 import { SiteFooter } from "@/components/site-footer";
@@ -32,6 +33,7 @@ import {
   PieChart,
   Search,
   Settings,
+  Tag,
   Users,
   UserCog,
   FileBarChart,
@@ -41,6 +43,7 @@ const navItems = [
   { href: "#dashboard-overview", label: "Dashboard", icon: LayoutDashboard },
   { href: "#organizer-requests", label: "Organizer Requests", icon: Users },
   { href: "#events-management", label: "Events Management", icon: CalendarDays },
+  { href: "#categories-management", label: "Event Categories", icon: Tag },
   { href: "#campus-map", label: "Campus Map Controls", icon: MapIcon },
   { href: "#user-management", label: "User Management", icon: UserCog },
   { href: "#reports", label: "Reports", icon: FileBarChart },
@@ -56,14 +59,6 @@ const approvalTrend = [
   { month: "Apr", value: 62 },
   { month: "May", value: 58 },
   { month: "Jun", value: 71 },
-] as const;
-
-const categories = [
-  { name: "Tech", pct: 35 },
-  { name: "Music", pct: 25 },
-  { name: "Sports", pct: 20 },
-  { name: "Career", pct: 15 },
-  { name: "Art", pct: 5 },
 ] as const;
 
 function statusBadge(status: string) {
@@ -287,6 +282,23 @@ export default async function AdminDashboardPage() {
       };
     }) ?? [];
 
+  const [{ data: catDefs }, { data: catLinks }] = await Promise.all([
+    supabase.from("event_categories").select("id,label").order("label"),
+    supabase.from("event_category_links").select("category_id"),
+  ]);
+  const linkCountByCategoryId: Record<string, number> = {};
+  for (const r of catLinks ?? []) {
+    linkCountByCategoryId[r.category_id] = (linkCountByCategoryId[r.category_id] ?? 0) + 1;
+  }
+  const totalCategoryLinks = Math.max(1, (catLinks ?? []).length);
+  const popularCategoryChart = (catDefs ?? [])
+    .map((c) => ({
+      name: c.label,
+      pct: Math.round(((linkCountByCategoryId[c.id] ?? 0) / totalCategoryLinks) * 100),
+    }))
+    .filter((x) => x.pct > 0)
+    .sort((a, b) => b.pct - a.pct);
+
   return (
     <div className="flex min-h-screen bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-purple-950/40 via-background to-background">
       {/* Sidebar */}
@@ -415,15 +427,21 @@ export default async function AdminDashboardPage() {
                 </CardTitle>
               </CardHeader>
               <CardContent className="space-y-4">
-                {categories.map(({ name, pct }) => (
-                  <div key={name} className="space-y-1.5">
-                    <div className="flex justify-between text-xs">
-                      <span className="text-muted-foreground">{name}</span>
-                      <span className="text-white">{pct}%</span>
+                {popularCategoryChart.length === 0 ? (
+                  <p className="text-sm text-muted-foreground">
+                    No category tags on events yet — defaults appear after organizers tag events.
+                  </p>
+                ) : (
+                  popularCategoryChart.map(({ name, pct }) => (
+                    <div key={name} className="space-y-1.5">
+                      <div className="flex justify-between text-xs">
+                        <span className="text-muted-foreground">{name}</span>
+                        <span className="text-white">{pct}%</span>
+                      </div>
+                      <Progress value={pct} className="h-2 bg-white/10 [&>div]:bg-purple-500" />
                     </div>
-                    <Progress value={pct} className="h-2 bg-white/10 [&>div]:bg-purple-500" />
-                  </div>
-                ))}
+                  ))
+                )}
               </CardContent>
             </Card>
           </section>
@@ -503,6 +521,17 @@ export default async function AdminDashboardPage() {
               </p>
             </div>
             <AdminEventsPanel rows={adminEventRows} />
+          </section>
+
+          <section id="categories-management">
+            <div className="mb-4 space-y-1">
+              <h2 className="text-lg font-semibold text-white">Event categories</h2>
+              <p className="text-sm text-muted-foreground">
+                Labels organizers pick when creating events. Deleting prompts you to reassign any
+                tagged events.
+              </p>
+            </div>
+            <CategoriesAdminPanel />
           </section>
 
           {/* Campus map */}
