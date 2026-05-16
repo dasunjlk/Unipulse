@@ -8,6 +8,7 @@ import { SiteFooter } from "@/components/site-footer";
 import { SiteHeader } from "@/components/site-header";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { createClient } from "@/lib/supabase/server";
+import { parseMerchItems } from "@/lib/merch";
 import { storedWhatsappToDisplay } from "@/lib/auth/phone";
 import { EVENT_CATEGORY_LINKS_SELECT, flattenLinkedCategories } from "@/lib/event-categories";
 import { Activity, DollarSign, Ticket, TrendingUp } from "lucide-react";
