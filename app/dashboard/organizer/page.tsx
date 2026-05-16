@@ -6,6 +6,7 @@ import {
   PublishEventButton,
   ExportManifestButton,
 } from "@/app/components/scaffold-actions";
+import { MagicUploadForm } from "@/components/magic-upload-form";
 import { SiteFooter } from "@/components/site-footer";
 import { SiteHeader } from "@/components/site-header";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -138,6 +139,18 @@ export default async function OrganizerDashboardPage() {
             </CardHeader>
             <CardContent>
               <ProposalUploadForm />
+            </CardContent>
+          </Card>
+
+          <Card className="border-white/10 bg-card/50 backdrop-blur-xl">
+            <CardHeader>
+              <CardTitle className="text-white">Magic upload (live OpenAI)</CardTitle>
+              <p className="text-sm text-muted-foreground">
+                Upload an event PDF — n8n extracts structured fields and returns them instantly.
+              </p>
+            </CardHeader>
+            <CardContent>
+              <MagicUploadForm />
             </CardContent>
           </Card>
 
