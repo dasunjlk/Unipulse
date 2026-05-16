@@ -162,22 +162,10 @@ export default async function EventDetailPage({ params }: PageProps) {
                 Speaker list is illustrative — hook into your CMS when ready.
               </p>
             </section>
-
-            <section>
-              <h3 className="mb-4 text-lg font-semibold text-white">Gallery Preview</h3>
-              <div className="grid grid-cols-3 gap-3">
-                {[1, 2, 3].map((i) => (
-                  <div
-                    key={i}
-                    className="aspect-video rounded-xl border border-white/10 bg-gradient-to-br from-purple-600/30 to-blue-600/20"
-                  />
-                ))}
-              </div>
-            </section>
           </div>
 
           <div className="space-y-6">
-            <Card className="sticky top-24 border-white/10 bg-card/50 backdrop-blur-xl">
+            <Card className="border-white/10 bg-card/50 backdrop-blur-xl">
               <CardContent className="space-y-4 pt-6">
                 <div className="flex items-start gap-3">
                   <Calendar className="mt-0.5 h-5 w-5 text-purple-400" />

@@ -37,21 +37,8 @@ async function parseJson(res: Response) {
 }
 
 export function LogoutButton() {
-  const router = useRouter();
-  const [msg, setMsg] = useState<string | null>(null);
-
-  async function logout() {
-    setMsg(null);
-    const res = await fetch("/api/auth/logout", {
-      method: "POST",
-      credentials: "include",
-    });
-    const body = await parseJson(res);
-    if (res.ok) {
-      router.push("/");
-      return;
-    }
-    setMsg(String(body.error ?? res.status));
+  function logout() {
+    window.location.assign("/api/auth/logout");
   }
 
   return (
@@ -59,7 +46,6 @@ export function LogoutButton() {
       <Button type="button" variant="secondary" onClick={logout}>
         Log out
       </Button>
-      {msg ? <span className="text-sm text-muted-foreground">{msg}</span> : null}
     </div>
   );
 }
