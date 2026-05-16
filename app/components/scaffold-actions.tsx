@@ -385,6 +385,31 @@ export function RegisterButton({ eventId }: { eventId: string }) {
   );
 }
 
+export function UnregisterButton({ eventId }: { eventId: string }) {
+  const router = useRouter();
+  const [msg, setMsg] = useState<string | null>(null);
+
+  async function go() {
+    setMsg(null);
+    const res = await fetch(`/api/events/${eventId}/register`, {
+      method: "DELETE",
+      credentials: "include",
+    });
+    const body = await parseJson(res);
+    setMsg(res.ok ? "Unregistered." : String(body.error ?? res.status));
+    if (res.ok) router.refresh();
+  }
+
+  return (
+    <div className="flex flex-col gap-1">
+      <Button type="button" variant="outline" size="sm" onClick={go}>
+        Unregister
+      </Button>
+      {msg ? <span className="text-xs text-muted-foreground">{msg}</span> : null}
+    </div>
+  );
+}
+
 export function MerchBuyButton({
   eventId,
   itemId,
@@ -416,7 +441,13 @@ export function MerchBuyButton({
   );
 }
 
-export function PublishEventButton({ eventId }: { eventId: string }) {
+export function PublishEventButton({
+  eventId,
+  onSuccess,
+}: {
+  eventId: string;
+  onSuccess?: () => void;
+}) {
   const [msg, setMsg] = useState<string | null>(null);
 
   async function go() {
@@ -431,12 +462,45 @@ export function PublishEventButton({ eventId }: { eventId: string }) {
     setMsg(
       res.ok ? "Published (fires n8n event-published)." : String(body.error ?? res.status),
     );
+    if (res.ok) onSuccess?.();
   }
 
   return (
     <div className="flex flex-col gap-1">
       <Button type="button" variant="outline" size="sm" onClick={go}>
         Publish draft
+      </Button>
+      {msg ? <span className="text-xs text-muted-foreground">{msg}</span> : null}
+    </div>
+  );
+}
+
+export function UnpublishEventButton({
+  eventId,
+  onSuccess,
+}: {
+  eventId: string;
+  onSuccess?: () => void;
+}) {
+  const [msg, setMsg] = useState<string | null>(null);
+
+  async function go() {
+    setMsg(null);
+    const res = await fetch(`/api/events/${eventId}`, {
+      method: "PATCH",
+      credentials: "include",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ is_draft: true }),
+    });
+    const body = await parseJson(res);
+    setMsg(res.ok ? "Unpublished — event is now draft." : String(body.error ?? res.status));
+    if (res.ok) onSuccess?.();
+  }
+
+  return (
+    <div className="flex flex-col gap-1">
+      <Button type="button" variant="outline" size="sm" onClick={go}>
+        Unpublish
       </Button>
       {msg ? <span className="text-xs text-muted-foreground">{msg}</span> : null}
     </div>

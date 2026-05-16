@@ -27,6 +27,31 @@ npx supabase start
 npm run db:reset   # migrations + seed.sql
 ```
 
+## Hosted Supabase (cloud DB)
+
+Your Next app connects to whichever project URLs/keys live in `.env.local`. After pulling new migrations, apply them **to that remote project** — otherwise features that depend on new tables/policies (e.g. campus map `locations`, `campus-map` bucket) will 400 against PostgREST.
+
+**Option A — CLI (`supabase` v2+, PAT-only link)**
+
+1. [Create an access token](https://supabase.com/dashboard/account/tokens) (starts with `sbp_`).
+2. Put it in `.env.local`:
+   ```
+   SUPABASE_ACCESS_TOKEN=sbp_...
+   # optional if your project ref differs from the default UniPulse staging ref:
+   # SUPABASE_PROJECT_REF=your_twenty_char_ref
+   ```
+3. From the repo root:
+   ```bash
+   npm run db:push:cloud
+   ```
+   This runs `supabase link`, executes [`scripts/ensure-grid-for-seed.sql`](scripts/ensure-grid-for-seed.sql) (sets `grid_n` to **at least 10** so campus seed pins in migration [`20250518120000`](supabase/migrations/20250518120000_campus_locations.sql) succeed), then `supabase db push`.
+
+**Option B — SQL Editor**
+
+If you prefer the dashboard: paste and run **[`supabase/cloud_apply_bundle.sql`](supabase/cloud_apply_bundle.sql)** once (it includes `DELETE FROM public.events`; registration rows CASCADE). Afterwards, when you switch back to the CLI on that project, reconcile migration history (`supabase migration repair`, etc.) so `db push` doesn’t attempt to replay the same SQL.
+
+**Smoke-test** after either option: restart `npm run dev` and hit `GET /api/locations` — should return 200 JSON, not PostgREST `PGRST205`.
+
 Default **seed admin** (login only; never via signup UI):
 
 - Email: `admin@unipulse.local`
@@ -53,10 +78,11 @@ RLS + API guards enforce **approved organizers** for event mutations and **stude
 |------|--------|
 | Auth | `POST /api/auth/signup/student`, `POST /api/auth/signup/organizer`, `POST /api/auth/login/student`, `POST /api/auth/login`, `POST /api/auth/logout` |
 | Events | `GET/POST /api/events`, `GET/PATCH/DELETE /api/events/[id]` |
+| Campus map | `GET /api/locations` |
 | Engagement | `PATCH /api/events/[id]/upvote`, `POST /api/events/[id]/register`, `GET /api/events/[id]/ics` (+ `?format=google`) |
 | Merch (V1 mock) | `POST /api/events/[id]/merch/purchase`, `POST /api/events/[id]/merch/export-manifest` |
 | Onboarding | `POST /api/onboard` (multipart file → Storage → n8n), `POST /api/onboard/callback` (HMAC JSON → draft event) |
-| Admin | `GET /api/admin/organizers/pending`, `POST .../approve`, `POST .../reject`, `GET/PATCH /api/admin/config` |
+| Admin | `GET /api/admin/organizers/pending`, `POST .../approve`, `POST .../reject`, `GET/PATCH /api/admin/config`, `POST /api/admin/locations`, `PATCH /api/admin/locations/[id]`, `DELETE /api/admin/locations/[id]`, `POST/DELETE /api/admin/map/background` |
 
 ## n8n
 
@@ -90,3 +116,4 @@ Plain pages under `app/` exercise the APIs before your designer UI lands. Look f
 - `npm run dev` — Next.js dev server  
 - `npm run build` — production build  
 - `npm run lint` — ESLint  
+- `npm run db:push:cloud` — `supabase link` + `db push` for hosted DB (needs `SUPABASE_ACCESS_TOKEN=sbp_...` in `.env.local`)  

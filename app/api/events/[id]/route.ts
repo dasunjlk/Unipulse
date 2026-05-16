@@ -65,8 +65,12 @@ export async function PATCH(request: Request, context: Ctx) {
     if (body.start_at !== undefined) patch.start_at = body.start_at;
     if (body.end_at !== undefined) patch.end_at = body.end_at;
     if (body.venue !== undefined) patch.venue = body.venue;
-    if (body.grid_row !== undefined) patch.grid_row = body.grid_row;
-    if (body.grid_col !== undefined) patch.grid_col = body.grid_col;
+    if (body.location_id !== undefined) {
+      if (typeof body.location_id !== "string" || body.location_id.length === 0) {
+        return NextResponse.json({ error: "invalid location_id" }, { status: 400 });
+      }
+      patch.location_id = body.location_id;
+    }
     if (body.is_open_event !== undefined) patch.is_open_event = body.is_open_event;
     if (body.is_pinned !== undefined) patch.is_pinned = body.is_pinned;
     if (body.ticket_capacity !== undefined) patch.ticket_capacity = body.ticket_capacity;

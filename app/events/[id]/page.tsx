@@ -41,7 +41,7 @@ export default async function EventDetailPage({ params }: PageProps) {
   const supabase = createClient();
   const { data: event, error } = await supabase
     .from("events")
-    .select("*")
+    .select("*, locations(code,name,grid_row,grid_col)")
     .eq("id", params.id)
     .single();
 
@@ -83,6 +83,16 @@ export default async function EventDetailPage({ params }: PageProps) {
 
   const isOwner = user?.id === event.organizer_id;
   const category = inferEventCategory(event.title, event.description);
+
+  const locNestedRaw = (
+    event as unknown as {
+      locations?: { code: string; name: string; grid_row: number; grid_col: number } | null;
+    }
+  ).locations;
+  const locationPin =
+    locNestedRaw && typeof locNestedRaw === "object" && !Array.isArray(locNestedRaw)
+      ? locNestedRaw
+      : null;
 
   const start = event.start_at ? new Date(event.start_at) : null;
   const end = event.end_at ? new Date(event.end_at) : null;
@@ -264,7 +274,20 @@ export default async function EventDetailPage({ params }: PageProps) {
               </CardHeader>
               <CardContent className="text-sm text-muted-foreground">
                 <p>{event.venue ?? "Campus venue"}</p>
-                <p className="mt-1 text-xs">Grid pin: ({event.grid_row}, {event.grid_col})</p>
+                <p className="mt-1 text-xs">
+                  Campus map:{" "}
+                  {locationPin ? (
+                    <>
+                      <span className="font-medium text-purple-200">{locationPin.code}</span>
+                      {" · "}
+                      {locationPin.name} ({event.grid_row}, {event.grid_col})
+                    </>
+                  ) : (
+                    <>
+                      Pin ({event.grid_row}, {event.grid_col})
+                    </>
+                  )}
+                </p>
               </CardContent>
             </Card>
           </div>

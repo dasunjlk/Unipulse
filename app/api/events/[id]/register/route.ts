@@ -24,3 +24,25 @@ export async function POST(_request: Request, context: Ctx) {
     return jsonError(e);
   }
 }
+
+export async function DELETE(_request: Request, context: Ctx) {
+  try {
+    const { id } = context.params;
+    const supabase = createClient();
+    const { user } = await requireStudent(supabase);
+
+    const { error } = await supabase
+      .from("registrations")
+      .delete()
+      .eq("event_id", id)
+      .eq("student_id", user.id);
+
+    if (error) {
+      return NextResponse.json({ error: error.message }, { status: 400 });
+    }
+
+    return NextResponse.json({ ok: true });
+  } catch (e) {
+    return jsonError(e);
+  }
+}
