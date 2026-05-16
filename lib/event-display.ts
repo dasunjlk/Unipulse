@@ -16,6 +16,7 @@ const KEYWORDS: Array<{ keys: string[]; category: string }> = [
   { keys: ["career", "job", "fair", "recruit", "startup", "network"], category: "Career" },
 ];
 
+/** @deprecated Use persisted categories from DB; kept for magic-upload suggestion and backfill script. */
 export function inferEventCategory(title: string, description: string): string {
   const explicit = description.match(/^\s*category:\s*([^\n\r]+)/im);
   if (explicit) {

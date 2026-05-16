@@ -1,7 +1,10 @@
 import Link from "next/link";
+import { createAdminClient } from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/server";
 import { AdminEventsPanel } from "@/app/components/admin-events-panel";
 import { AdminOrganizersPanel, GridConfigForm } from "@/app/components/admin-panel";
+import { AdminUsersPanel } from "@/app/components/admin-users-panel";
+import { CategoriesAdminPanel } from "@/app/components/categories-admin-panel";
 import { LocationsAdminPanel } from "@/app/components/locations-admin-panel";
 import { LogoutButton } from "@/app/components/scaffold-actions";
 import { SiteFooter } from "@/components/site-footer";
@@ -30,6 +33,7 @@ import {
   PieChart,
   Search,
   Settings,
+  Tag,
   Users,
   UserCog,
   FileBarChart,
@@ -39,93 +43,13 @@ const navItems = [
   { href: "#dashboard-overview", label: "Dashboard", icon: LayoutDashboard },
   { href: "#organizer-requests", label: "Organizer Requests", icon: Users },
   { href: "#events-management", label: "Events Management", icon: CalendarDays },
+  { href: "#categories-management", label: "Event Categories", icon: Tag },
   { href: "#campus-map", label: "Campus Map Controls", icon: MapIcon },
   { href: "#user-management", label: "User Management", icon: UserCog },
   { href: "#reports", label: "Reports", icon: FileBarChart },
   { href: "#analytics", label: "Analytics", icon: BarChart3 },
   { href: "#notifications", label: "Notifications", icon: Bell },
   { href: "#settings", label: "Settings", icon: Settings },
-] as const;
-
-const mockOrganizers = [
-  {
-    organizer: "Tech Innovators Club",
-    university: "Computer Science Society",
-    email: "tech@mit.edu",
-    date: "2024-01-15",
-    status: "pending",
-  },
-  {
-    organizer: "Music Enthusiasts",
-    university: "Jazz Band",
-    email: "music@berklee.edu",
-    date: "2024-01-14",
-    status: "approved",
-  },
-  {
-    organizer: "Sports United",
-    university: "Stanford Athletics Club",
-    email: "sports@stanford.edu",
-    date: "2024-01-13",
-    status: "pending",
-  },
-  {
-    organizer: "Art Collective",
-    university: "Fine Arts Society",
-    email: "art@risd.edu",
-    date: "2024-01-12",
-    status: "rejected",
-  },
-  {
-    organizer: "Business Leaders",
-    university: "Entrepreneurship Club",
-    email: "biz@harvard.edu",
-    date: "2024-01-11",
-    status: "pending",
-  },
-] as const;
-
-const mockUsers = [
-  {
-    user: "John Doe",
-    email: "john@university.edu",
-    role: "student",
-    status: "active",
-    activity: "Last active 2h ago",
-    initials: "JD",
-  },
-  {
-    user: "Jane Smith",
-    email: "jane@university.edu",
-    role: "organizer",
-    status: "active",
-    activity: "Last active 1h ago",
-    initials: "JS",
-  },
-  {
-    user: "Mike Johnson",
-    email: "mike@admin.edu",
-    role: "admin",
-    status: "active",
-    activity: "Online now",
-    initials: "MJ",
-  },
-  {
-    user: "Sarah Wilson",
-    email: "sarah@university.edu",
-    role: "student",
-    status: "suspended",
-    activity: "Suspended 3d ago",
-    initials: "SW",
-  },
-  {
-    user: "Chris Brown",
-    email: "chris@university.edu",
-    role: "organizer",
-    status: "active",
-    activity: "Last active 5h ago",
-    initials: "CB",
-  },
 ] as const;
 
 const approvalTrend = [
@@ -135,14 +59,6 @@ const approvalTrend = [
   { month: "Apr", value: 62 },
   { month: "May", value: 58 },
   { month: "Jun", value: 71 },
-] as const;
-
-const categories = [
-  { name: "Tech", pct: 35 },
-  { name: "Music", pct: 25 },
-  { name: "Sports", pct: 20 },
-  { name: "Career", pct: 15 },
-  { name: "Art", pct: 5 },
 ] as const;
 
 function statusBadge(status: string) {
@@ -178,7 +94,7 @@ function StatCard({
   value,
   label,
 }: {
-  delta: string;
+  delta?: string;
   deltaPositive?: boolean;
   value: string;
   label: string;
@@ -186,14 +102,18 @@ function StatCard({
   return (
     <Card className="border-white/10 bg-card/50">
       <CardContent className="p-5">
-        <div className="flex items-start justify-between gap-2">
-          <p
-            className={`text-sm font-medium ${deltaPositive === false ? "text-red-400" : "text-emerald-400"}`}
-          >
-            {delta}
-          </p>
-        </div>
-        <p className="mt-2 text-2xl font-bold tracking-tight text-white">{value}</p>
+        {delta != null ? (
+          <div className="flex items-start justify-between gap-2">
+            <p
+              className={`text-sm font-medium ${deltaPositive === false ? "text-red-400" : "text-emerald-400"}`}
+            >
+              {delta}
+            </p>
+          </div>
+        ) : null}
+        <p className={`${delta != null ? "mt-2 " : ""}text-2xl font-bold tracking-tight text-white`}>
+          {value}
+        </p>
         <p className="mt-1 text-xs text-muted-foreground">{label}</p>
       </CardContent>
     </Card>
@@ -252,6 +172,66 @@ export default async function AdminDashboardPage() {
     year: "numeric",
   }).format(new Date());
 
+  const fmt = new Intl.NumberFormat("en-US").format;
+  const nowIso = new Date().toISOString();
+
+  const adminClient = createAdminClient();
+
+  const [
+    { count: totalOrganizers },
+    { count: pendingOrganizerRequests },
+    { count: activeEventsCount },
+    { count: totalStudents },
+    { data: organizerProfiles },
+    { data: usersPage },
+  ] = await Promise.all([
+    supabase
+      .from("profiles")
+      .select("*", { count: "exact", head: true })
+      .eq("role", "organizer")
+      .eq("account_status", "approved"),
+    supabase
+      .from("profiles")
+      .select("*", { count: "exact", head: true })
+      .eq("role", "organizer")
+      .eq("account_status", "pending"),
+    supabase
+      .from("events")
+      .select("*", { count: "exact", head: true })
+      .eq("is_draft", false)
+      .gte("start_at", nowIso),
+    supabase
+      .from("profiles")
+      .select("*", { count: "exact", head: true })
+      .eq("role", "student"),
+    supabase
+      .from("profiles")
+      .select("id, full_name, club_name, university_id, account_status, created_at")
+      .eq("role", "organizer")
+      .order("created_at", { ascending: false }),
+    adminClient.auth.admin.listUsers({ page: 1, perPage: 1000 }),
+  ]);
+
+  const emailById = new Map<string, string>();
+  for (const u of usersPage?.users ?? []) {
+    if (u.email) emailById.set(u.id, u.email);
+  }
+
+  const dateFmt = new Intl.DateTimeFormat("en-US", {
+    year: "numeric",
+    month: "short",
+    day: "numeric",
+  });
+
+  const organizerSnapshotRows = (organizerProfiles ?? []).map((p) => ({
+    id: p.id,
+    organizer: p.full_name?.trim() || "Organizer",
+    university: p.club_name ?? p.university_id ?? "—",
+    email: emailById.get(p.id) ?? "—",
+    date: p.created_at ? dateFmt.format(new Date(p.created_at)) : "—",
+    status: p.account_status as "pending" | "approved" | "rejected",
+  }));
+
   const { data: eventsRows } = await supabase
     .from("events")
     .select("id,title,start_at,venue,is_draft,is_pinned,organizer_id")
@@ -301,6 +281,23 @@ export default async function AdminDashboardPage() {
         registration_count: registrationCountByEvent[e.id] ?? 0,
       };
     }) ?? [];
+
+  const [{ data: catDefs }, { data: catLinks }] = await Promise.all([
+    supabase.from("event_categories").select("id,label").order("label"),
+    supabase.from("event_category_links").select("category_id"),
+  ]);
+  const linkCountByCategoryId: Record<string, number> = {};
+  for (const r of catLinks ?? []) {
+    linkCountByCategoryId[r.category_id] = (linkCountByCategoryId[r.category_id] ?? 0) + 1;
+  }
+  const totalCategoryLinks = Math.max(1, (catLinks ?? []).length);
+  const popularCategoryChart = (catDefs ?? [])
+    .map((c) => ({
+      name: c.label,
+      pct: Math.round(((linkCountByCategoryId[c.id] ?? 0) / totalCategoryLinks) * 100),
+    }))
+    .filter((x) => x.pct > 0)
+    .sort((a, b) => b.pct - a.pct);
 
   return (
     <div className="flex min-h-screen bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-purple-950/40 via-background to-background">
@@ -380,10 +377,10 @@ export default async function AdminDashboardPage() {
         <main className="flex-1 space-y-10 px-4 py-8 lg:px-8">
           {/* KPI row */}
           <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
-            <StatCard delta="+12%" value="248" label="Total Organizers" />
-            <StatCard delta="+5" value="23" label="Pending Requests" />
-            <StatCard delta="+8%" value="87" label="Active Events" />
-            <StatCard delta="+342" value="12,847" label="Total Students" />
+            <StatCard value={fmt(totalOrganizers ?? 0)} label="Total Organizers" />
+            <StatCard value={fmt(pendingOrganizerRequests ?? 0)} label="Pending Requests" />
+            <StatCard value={fmt(activeEventsCount ?? 0)} label="Active Events" />
+            <StatCard value={fmt(totalStudents ?? 0)} label="Total Students" />
             <StatCard delta="+18%" value="$24,580" label="Revenue Overview" />
             <StatCard delta="-2%" deltaPositive={false} value="78.5%" label="Engagement Rate" />
           </section>
@@ -430,82 +427,74 @@ export default async function AdminDashboardPage() {
                 </CardTitle>
               </CardHeader>
               <CardContent className="space-y-4">
-                {categories.map(({ name, pct }) => (
-                  <div key={name} className="space-y-1.5">
-                    <div className="flex justify-between text-xs">
-                      <span className="text-muted-foreground">{name}</span>
-                      <span className="text-white">{pct}%</span>
+                {popularCategoryChart.length === 0 ? (
+                  <p className="text-sm text-muted-foreground">
+                    No category tags on events yet — defaults appear after organizers tag events.
+                  </p>
+                ) : (
+                  popularCategoryChart.map(({ name, pct }) => (
+                    <div key={name} className="space-y-1.5">
+                      <div className="flex justify-between text-xs">
+                        <span className="text-muted-foreground">{name}</span>
+                        <span className="text-white">{pct}%</span>
+                      </div>
+                      <Progress value={pct} className="h-2 bg-white/10 [&>div]:bg-purple-500" />
                     </div>
-                    <Progress value={pct} className="h-2 bg-white/10 [&>div]:bg-purple-500" />
-                  </div>
-                ))}
+                  ))
+                )}
               </CardContent>
             </Card>
           </section>
 
-          {/* Organizer snapshot + performance */}
-          <section id="reports" className="grid gap-6 lg:grid-cols-2">
+          {/* Organizer snapshot */}
+          <section id="reports">
             <Card className="border-white/10 bg-card/50">
               <CardHeader>
                 <CardTitle className="text-white">Organizer snapshot</CardTitle>
                 <p className="text-sm text-muted-foreground">
-                  Illustrative approvals mix — cross-check with live pending queue below.
+                  All organizers ordered by signup date — cross-check with live pending queue below.
                 </p>
               </CardHeader>
-              <CardContent className="overflow-x-auto">
-                <Table>
-                  <TableHeader>
-                    <TableRow className="border-white/10 hover:bg-transparent">
-                      <TableHead>Organizer</TableHead>
-                      <TableHead className="hidden md:table-cell">University / Club</TableHead>
-                      <TableHead className="hidden lg:table-cell">Email</TableHead>
-                      <TableHead>Date</TableHead>
-                      <TableHead>Status</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {mockOrganizers.map((row) => (
-                      <TableRow key={row.email} className="border-white/10">
-                        <TableCell className="font-medium text-white">{row.organizer}</TableCell>
-                        <TableCell className="hidden max-w-[140px] truncate text-muted-foreground md:table-cell">
-                          {row.university}
-                        </TableCell>
-                        <TableCell className="hidden text-muted-foreground lg:table-cell">
-                          {row.email}
-                        </TableCell>
-                        <TableCell className="text-muted-foreground">{row.date}</TableCell>
-                        <TableCell>{statusBadge(row.status)}</TableCell>
+              <CardContent className="p-0">
+                <div className="max-h-[420px] overflow-auto">
+                  <Table>
+                    <TableHeader>
+                      <TableRow className="border-white/10 hover:bg-transparent">
+                        <TableHead>Organizer</TableHead>
+                        <TableHead className="hidden md:table-cell">University / Club</TableHead>
+                        <TableHead className="hidden lg:table-cell">Email</TableHead>
+                        <TableHead>Date</TableHead>
+                        <TableHead>Status</TableHead>
                       </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
-              </CardContent>
-            </Card>
-
-            <Card className="border-white/10 bg-card/50">
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2 text-white">
-                  <BarChart3 className="h-5 w-5 text-purple-400" aria-hidden />
-                  Event Performance
-                </CardTitle>
-                <p className="text-sm text-muted-foreground">
-                  Engagement vs. baseline — demo visualization for roadmap analytics.
-                </p>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                {[
-                  { label: "Registrations", pct: 82 },
-                  { label: "Check-ins", pct: 64 },
-                  { label: "Feedback", pct: 41 },
-                ].map((row) => (
-                  <div key={row.label} className="space-y-2">
-                    <div className="flex justify-between text-sm">
-                      <span className="text-muted-foreground">{row.label}</span>
-                      <span className="text-white">{row.pct}%</span>
-                    </div>
-                    <Progress value={row.pct} className="h-2 bg-white/10 [&>div]:bg-blue-500" />
-                  </div>
-                ))}
+                    </TableHeader>
+                    <TableBody>
+                      {organizerSnapshotRows.length === 0 ? (
+                        <TableRow className="border-white/10">
+                          <TableCell
+                            colSpan={5}
+                            className="py-6 text-center text-sm text-muted-foreground"
+                          >
+                            No organizers yet.
+                          </TableCell>
+                        </TableRow>
+                      ) : (
+                        organizerSnapshotRows.map((row) => (
+                          <TableRow key={row.id} className="border-white/10">
+                            <TableCell className="font-medium text-white">{row.organizer}</TableCell>
+                            <TableCell className="hidden max-w-[140px] truncate text-muted-foreground md:table-cell">
+                              {row.university}
+                            </TableCell>
+                            <TableCell className="hidden text-muted-foreground lg:table-cell">
+                              {row.email}
+                            </TableCell>
+                            <TableCell className="text-muted-foreground">{row.date}</TableCell>
+                            <TableCell>{statusBadge(row.status)}</TableCell>
+                          </TableRow>
+                        ))
+                      )}
+                    </TableBody>
+                  </Table>
+                </div>
               </CardContent>
             </Card>
           </section>
@@ -534,6 +523,17 @@ export default async function AdminDashboardPage() {
             <AdminEventsPanel rows={adminEventRows} />
           </section>
 
+          <section id="categories-management">
+            <div className="mb-4 space-y-1">
+              <h2 className="text-lg font-semibold text-white">Event categories</h2>
+              <p className="text-sm text-muted-foreground">
+                Labels organizers pick when creating events. Deleting prompts you to reassign any
+                tagged events.
+              </p>
+            </div>
+            <CategoriesAdminPanel />
+          </section>
+
           {/* Campus map */}
           <section id="campus-map">
             <div className="mb-4 space-y-1">
@@ -553,64 +553,10 @@ export default async function AdminDashboardPage() {
             <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
               <h2 className="text-lg font-semibold text-white">User Management</h2>
               <Badge variant="outline" className="border-white/20">
-                All Users (demo)
+                Students
               </Badge>
             </div>
-            <Card className="border-white/10 bg-card/50">
-              <CardContent className="overflow-x-auto p-0">
-                <Table>
-                  <TableHeader>
-                    <TableRow className="border-white/10 hover:bg-transparent">
-                      <TableHead className="w-14" />
-                      <TableHead>User</TableHead>
-                      <TableHead className="hidden md:table-cell">Email</TableHead>
-                      <TableHead>Role</TableHead>
-                      <TableHead>Status</TableHead>
-                      <TableHead className="hidden lg:table-cell">Activity</TableHead>
-                      <TableHead className="text-right">Actions</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {mockUsers.map((u) => (
-                      <TableRow key={u.email} className="border-white/10">
-                        <TableCell>
-                          <Avatar className="h-8 w-8 border border-white/10">
-                            <AvatarFallback className="bg-white/10 text-[10px] text-white">
-                              {u.initials}
-                            </AvatarFallback>
-                          </Avatar>
-                        </TableCell>
-                        <TableCell className="font-medium text-white">{u.user}</TableCell>
-                        <TableCell className="hidden text-muted-foreground md:table-cell">
-                          {u.email}
-                        </TableCell>
-                        <TableCell className="capitalize text-muted-foreground">{u.role}</TableCell>
-                        <TableCell>
-                          <Badge
-                            variant="outline"
-                            className={
-                              u.status === "active"
-                                ? "border-emerald-500/40 text-emerald-200"
-                                : "border-red-500/40 text-red-200"
-                            }
-                          >
-                            {u.status}
-                          </Badge>
-                        </TableCell>
-                        <TableCell className="hidden text-muted-foreground lg:table-cell">
-                          {u.activity}
-                        </TableCell>
-                        <TableCell className="text-right">
-                          <Button variant="ghost" size="sm" className="text-purple-300">
-                            Manage
-                          </Button>
-                        </TableCell>
-                      </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
-              </CardContent>
-            </Card>
+            <AdminUsersPanel />
           </section>
 
           {/* Placeholders for remaining nav targets */}
