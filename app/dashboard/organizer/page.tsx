@@ -1,6 +1,5 @@
 import Link from "next/link";
 import type { ReactNode } from "react";
-import { ProposalUploadForm } from "@/app/components/scaffold-actions";
 import type { OrganizerEventRowSerialized } from "@/app/components/organizer-events-panel";
 import { OrganizerEventsPanel } from "@/app/components/organizer-events-panel";
 import { MagicUploadForm } from "@/components/magic-upload-form";
@@ -177,18 +176,6 @@ export default async function OrganizerDashboardPage() {
               icon={<DollarSign className="h-5 w-5 text-amber-400" />}
             />
           </div>
-
-          <Card className="border-white/10 bg-card/50 backdrop-blur-xl">
-            <CardHeader>
-              <CardTitle className="text-white">Magic onboarding</CardTitle>
-              <p className="text-sm text-muted-foreground">
-                Upload a proposal — triggers n8n proposal-uploaded webhook.
-              </p>
-            </CardHeader>
-            <CardContent>
-              <ProposalUploadForm />
-            </CardContent>
-          </Card>
 
           <Card className="border-white/10 bg-card/50 backdrop-blur-xl">
             <CardHeader>
