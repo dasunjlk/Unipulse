@@ -1,6 +1,11 @@
 "use client";
 
 import { useState } from "react";
+import Link from "next/link";
+import { useRouter } from "next/navigation";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 
 async function parseJson(res: Response) {
   const text = await res.text();
@@ -12,6 +17,7 @@ async function parseJson(res: Response) {
 }
 
 export function LogoutButton() {
+  const router = useRouter();
   const [msg, setMsg] = useState<string | null>(null);
 
   async function logout() {
@@ -21,15 +27,19 @@ export function LogoutButton() {
       credentials: "include",
     });
     const body = await parseJson(res);
-    setMsg(res.ok ? "Logged out." : String(body.error ?? res.status));
+    if (res.ok) {
+      router.push("/");
+      return;
+    }
+    setMsg(String(body.error ?? res.status));
   }
 
   return (
-    <div>
-      <button type="button" onClick={logout}>
+    <div className="flex items-center gap-3">
+      <Button type="button" variant="secondary" onClick={logout}>
         Log out
-      </button>
-      {msg ? <small> {msg}</small> : null}
+      </Button>
+      {msg ? <span className="text-sm text-muted-foreground">{msg}</span> : null}
     </div>
   );
 }
@@ -52,25 +62,37 @@ export function StudentSignupForm() {
       }),
     });
     const body = await parseJson(res);
-    setMsg(res.ok ? "OK — session cookie set." : String(body.error ?? res.status));
+    setMsg(res.ok ? "Account created — you’re signed in." : String(body.error ?? res.status));
   }
 
   return (
-    <form onSubmit={onSubmit}>
-      <label>
-        University ID <input name="university_id" required />
-      </label>
-      <br />
-      <label>
-        Full name <input name="full_name" required />
-      </label>
-      <br />
-      <label>
-        Password <input name="password" type="password" required minLength={6} />
-      </label>
-      <br />
-      <button type="submit">Sign up</button>
-      {msg ? <p>{msg}</p> : null}
+    <form onSubmit={onSubmit} className="space-y-4">
+      <div className="space-y-2">
+        <Label htmlFor="university_id">University ID</Label>
+        <Input id="university_id" name="university_id" required placeholder="e.g. jane.doe" />
+      </div>
+      <div className="space-y-2">
+        <Label htmlFor="full_name">Full name</Label>
+        <Input id="full_name" name="full_name" required />
+      </div>
+      <div className="space-y-2">
+        <Label htmlFor="password">Password</Label>
+        <Input
+          id="password"
+          name="password"
+          type="password"
+          required
+          minLength={6}
+          autoComplete="new-password"
+        />
+      </div>
+      <Button
+        type="submit"
+        className="w-full border-0 bg-gradient-to-r from-purple-600 to-blue-600 text-white"
+      >
+        Sign up
+      </Button>
+      {msg ? <p className="text-sm text-muted-foreground">{msg}</p> : null}
     </form>
   );
 }
@@ -94,31 +116,51 @@ export function OrganizerSignupForm() {
       }),
     });
     const body = await parseJson(res);
-    setMsg(res.ok ? "OK — pending approval." : String(body.error ?? res.status));
+    setMsg(res.ok ? "Application submitted — pending approval." : String(body.error ?? res.status));
   }
 
   return (
-    <form onSubmit={onSubmit}>
-      <label>
-        Email <input name="email" type="email" required />
-      </label>
-      <br />
-      <label>
-        Full name <input name="full_name" required />
-      </label>
-      <br />
-      <label>
-        Club name <input name="club_name" required />
-      </label>
-      <br />
-      <label>
-        Password <input name="password" type="password" required minLength={6} />
-      </label>
-      <br />
-      <button type="submit">Sign up</button>
-      {msg ? <p>{msg}</p> : null}
+    <form onSubmit={onSubmit} className="space-y-4">
+      <div className="space-y-2">
+        <Label htmlFor="email">Email</Label>
+        <Input id="email" name="email" type="email" required />
+      </div>
+      <div className="space-y-2">
+        <Label htmlFor="full_name_org">Full name</Label>
+        <Input id="full_name_org" name="full_name" required />
+      </div>
+      <div className="space-y-2">
+        <Label htmlFor="club_name">Club name</Label>
+        <Input id="club_name" name="club_name" required />
+      </div>
+      <div className="space-y-2">
+        <Label htmlFor="password_org">Password</Label>
+        <Input
+          id="password_org"
+          name="password"
+          type="password"
+          required
+          minLength={6}
+          autoComplete="new-password"
+        />
+      </div>
+      <Button
+        type="submit"
+        className="w-full border-0 bg-gradient-to-r from-purple-600 to-blue-600 text-white"
+      >
+        Sign up
+      </Button>
+      {msg ? <p className="text-sm text-muted-foreground">{msg}</p> : null}
     </form>
   );
+}
+
+function normalizeUniversityId(raw: string) {
+  const t = raw.trim();
+  if (t.includes("@")) {
+    return t.split("@")[0] ?? t;
+  }
+  return t;
 }
 
 export function StudentLoginForm() {
@@ -128,36 +170,87 @@ export function StudentLoginForm() {
     e.preventDefault();
     setMsg(null);
     const fd = new FormData(e.currentTarget);
+    const university_id = normalizeUniversityId(String(fd.get("university_id") ?? ""));
     const res = await fetch("/api/auth/login/student", {
       method: "POST",
       credentials: "include",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
-        university_id: fd.get("university_id"),
+        university_id,
         password: fd.get("password"),
       }),
     });
     const body = await parseJson(res);
-    setMsg(res.ok ? "OK — logged in." : String(body.error ?? res.status));
+    setMsg(res.ok ? "Welcome back — redirected soon." : String(body.error ?? res.status));
+    if (res.ok) {
+      window.location.href = "/";
+    }
   }
 
   return (
-    <form onSubmit={onSubmit}>
-      <label>
-        University ID <input name="university_id" required />
-      </label>
-      <br />
-      <label>
-        Password <input name="password" type="password" required />
-      </label>
-      <br />
-      <button type="submit">Login</button>
-      {msg ? <p>{msg}</p> : null}
+    <form onSubmit={onSubmit} className="space-y-4">
+      <div className="space-y-2">
+        <Label htmlFor="uni">University email or ID</Label>
+        <Input
+          id="uni"
+          name="university_id"
+          required
+          autoComplete="username"
+          placeholder="you@university.edu"
+        />
+      </div>
+      <div className="space-y-2">
+        <Label htmlFor="pw">Password</Label>
+        <Input
+          id="pw"
+          name="password"
+          type="password"
+          required
+          autoComplete="current-password"
+          placeholder="Enter your password"
+        />
+      </div>
+      <div className="flex items-center justify-between text-sm">
+        <label className="flex items-center gap-2 text-muted-foreground">
+          <input type="checkbox" className="rounded border-white/20 bg-transparent" />
+          Remember me
+        </label>
+        <span className="text-muted-foreground">Forgot password?</span>
+      </div>
+      <Button
+        type="submit"
+        className="w-full border-0 bg-gradient-to-r from-purple-600 to-blue-600 text-white"
+      >
+        Sign In
+      </Button>
+      {msg ? <p className="text-sm text-muted-foreground">{msg}</p> : null}
+      <p className="text-center text-sm text-muted-foreground">
+        Don&apos;t have an account?{" "}
+        <Link href="/signup/student" className="text-purple-300 hover:underline">
+          Sign up
+        </Link>
+      </p>
     </form>
   );
 }
 
-export function EmailLoginForm() {
+export function EmailLoginForm({
+  submitLabel = "Access Dashboard",
+  showForgot = true,
+  redirectTo = "/dashboard/organizer",
+  showHint = false,
+  emailLabel = "Organizer Email",
+  emailPlaceholder = "organizer@club.edu",
+  hideClub = false,
+}: {
+  submitLabel?: string;
+  showForgot?: boolean;
+  redirectTo?: string;
+  showHint?: boolean;
+  emailLabel?: string;
+  emailPlaceholder?: string;
+  hideClub?: boolean;
+} = {}) {
   const [msg, setMsg] = useState<string | null>(null);
 
   async function onSubmit(e: React.FormEvent<HTMLFormElement>) {
@@ -174,21 +267,66 @@ export function EmailLoginForm() {
       }),
     });
     const body = await parseJson(res);
-    setMsg(res.ok ? "OK — logged in." : String(body.error ?? res.status));
+    setMsg(res.ok ? "Signed in." : String(body.error ?? res.status));
+    if (res.ok) {
+      window.location.href = redirectTo;
+    }
   }
 
   return (
-    <form onSubmit={onSubmit}>
-      <label>
-        Email <input name="email" type="email" required />
-      </label>
-      <br />
-      <label>
-        Password <input name="password" type="password" required />
-      </label>
-      <br />
-      <button type="submit">Login</button>
-      {msg ? <p>{msg}</p> : null}
+    <form onSubmit={onSubmit} className="space-y-4">
+      {showHint ? (
+        <div className="rounded-lg border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-xs text-amber-100">
+          Admin users: use your seed email on this form too, then open{" "}
+          <Link href="/dashboard/admin" className="underline">
+            Admin dashboard
+          </Link>
+          .
+        </div>
+      ) : null}
+      <div className="space-y-2">
+        <Label htmlFor="email-login">{emailLabel}</Label>
+        <Input
+          id="email-login"
+          name="email"
+          type="email"
+          required
+          placeholder={emailPlaceholder}
+          autoComplete="email"
+        />
+      </div>
+      <div className="space-y-2">
+        <Label htmlFor="email-pass">Password</Label>
+        <Input
+          id="email-pass"
+          name="password"
+          type="password"
+          required
+          placeholder="Enter your password"
+          autoComplete="current-password"
+        />
+      </div>
+      {!hideClub && (
+        <div className="space-y-2">
+          <Label htmlFor="club_display">Organization / Club Name</Label>
+          <Input id="club_display" name="club_display" placeholder="e.g., Tech Society" />
+          <p className="text-xs text-muted-foreground">Shown for your reference; not sent to login.</p>
+        </div>
+      )}
+      <div className="flex items-center justify-between text-sm">
+        <label className="flex items-center gap-2 text-muted-foreground">
+          <input type="checkbox" className="rounded border-white/20 bg-transparent" />
+          Keep me signed in
+        </label>
+        {showForgot ? <span className="text-muted-foreground">Forgot password?</span> : null}
+      </div>
+      <Button
+        type="submit"
+        className="w-full border-0 bg-gradient-to-r from-purple-600 to-blue-600 text-white"
+      >
+        {submitLabel}
+      </Button>
+      {msg ? <p className="text-sm text-muted-foreground">{msg}</p> : null}
     </form>
   );
 }
@@ -207,11 +345,15 @@ export function UpvoteButton({ eventId }: { eventId: string }) {
   }
 
   return (
-    <div>
-      <button type="button" onClick={go}>
+    <div className="flex flex-col gap-2">
+      <Button
+        type="button"
+        onClick={go}
+        className="border-0 bg-gradient-to-r from-purple-600 to-blue-600 text-white"
+      >
         I will be there (+1)
-      </button>
-      {msg ? <small> {msg}</small> : null}
+      </Button>
+      {msg ? <span className="text-xs text-muted-foreground">{msg}</span> : null}
     </div>
   );
 }
@@ -230,11 +372,15 @@ export function RegisterButton({ eventId }: { eventId: string }) {
   }
 
   return (
-    <div>
-      <button type="button" onClick={go}>
-        Register
-      </button>
-      {msg ? <small> {msg}</small> : null}
+    <div className="flex flex-col gap-2">
+      <Button
+        type="button"
+        onClick={go}
+        className="border-0 bg-gradient-to-r from-purple-600 to-blue-600 text-white"
+      >
+        Register Now
+      </Button>
+      {msg ? <span className="text-xs text-muted-foreground">{msg}</span> : null}
     </div>
   );
 }
@@ -261,11 +407,11 @@ export function MerchBuyButton({
   }
 
   return (
-    <div>
-      <button type="button" onClick={go}>
+    <div className="flex flex-col gap-1">
+      <Button type="button" variant="secondary" onClick={go}>
         Buy {itemId} (mock)
-      </button>
-      {msg ? <small> {msg}</small> : null}
+      </Button>
+      {msg ? <span className="text-xs text-muted-foreground">{msg}</span> : null}
     </div>
   );
 }
@@ -288,11 +434,11 @@ export function PublishEventButton({ eventId }: { eventId: string }) {
   }
 
   return (
-    <div>
-      <button type="button" onClick={go}>
-        Publish draft (is_draft=false)
-      </button>
-      {msg ? <small> {msg}</small> : null}
+    <div className="flex flex-col gap-1">
+      <Button type="button" variant="outline" size="sm" onClick={go}>
+        Publish draft
+      </Button>
+      {msg ? <span className="text-xs text-muted-foreground">{msg}</span> : null}
     </div>
   );
 }
@@ -314,12 +460,15 @@ export function ProposalUploadForm() {
   }
 
   return (
-    <form onSubmit={onSubmit}>
-      <label>
-        Proposal file <input name="file" type="file" required />
-      </label>
-      <button type="submit">Upload</button>
-      {msg ? <p>{msg}</p> : null}
+    <form onSubmit={onSubmit} className="space-y-3">
+      <div className="space-y-2">
+        <Label htmlFor="proposal">Proposal file</Label>
+        <Input id="proposal" name="file" type="file" required />
+      </div>
+      <Button type="submit" variant="secondary">
+        Upload
+      </Button>
+      {msg ? <p className="text-sm text-muted-foreground">{msg}</p> : null}
     </form>
   );
 }
@@ -338,11 +487,11 @@ export function ExportManifestButton({ eventId }: { eventId: string }) {
   }
 
   return (
-    <div>
-      <button type="button" onClick={go}>
-        Export merch manifest (n8n)
-      </button>
-      {msg ? <small> {msg}</small> : null}
+    <div className="flex flex-col gap-1">
+      <Button type="button" variant="outline" size="sm" onClick={go}>
+        Export merch manifest
+      </Button>
+      {msg ? <span className="text-xs text-muted-foreground">{msg}</span> : null}
     </div>
   );
 }
