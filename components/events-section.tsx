@@ -24,11 +24,17 @@ export function EventsSection({ events }: { events: HomeEventCard[] }) {
   return (
     <section>
       <h2 className="mb-6 text-2xl font-bold text-white">Upcoming Events</h2>
-      <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
-        {events.map((event) => (
-          <EventCard key={event.id} event={event} />
-        ))}
-      </div>
+      {events.length === 0 ? (
+        <p className="rounded-2xl border border-white/10 bg-card/30 py-16 text-center text-sm text-muted-foreground backdrop-blur-xl">
+          No events match the selected filters.
+        </p>
+      ) : (
+        <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
+          {events.map((event) => (
+            <EventCard key={event.id} event={event} />
+          ))}
+        </div>
+      )}
     </section>
   );
 }
