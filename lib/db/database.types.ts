@@ -43,10 +43,39 @@ export interface Database {
         };
         Relationships: [];
       };
+      locations: {
+        Row: {
+          id: string;
+          name: string;
+          code: string;
+          grid_row: number;
+          grid_col: number;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          name: string;
+          code: string;
+          grid_row: number;
+          grid_col: number;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          name?: string;
+          code?: string;
+          grid_row?: number;
+          grid_col?: number;
+          updated_at?: string;
+        };
+        Relationships: [];
+      };
       events: {
         Row: {
           id: string;
           organizer_id: string;
+          location_id: string;
           title: string;
           description: string;
           proposal_file_url: string | null;
@@ -67,6 +96,7 @@ export interface Database {
         Insert: {
           id?: string;
           organizer_id: string;
+          location_id: string;
           title?: string;
           description?: string;
           proposal_file_url?: string | null;
@@ -85,6 +115,7 @@ export interface Database {
           created_at?: string;
         };
         Update: {
+          location_id?: string;
           title?: string;
           description?: string;
           proposal_file_url?: string | null;
@@ -152,15 +183,18 @@ export interface Database {
         Row: {
           id: number;
           grid_n: number;
+          map_background_url: string | null;
           updated_at: string;
         };
         Insert: {
           id?: number;
           grid_n?: number;
+          map_background_url?: string | null;
           updated_at?: string;
         };
         Update: {
           grid_n?: number;
+          map_background_url?: string | null;
           updated_at?: string;
         };
         Relationships: [];

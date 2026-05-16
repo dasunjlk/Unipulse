@@ -37,16 +37,22 @@ export async function POST(request: Request) {
 
     const body = (await request.json()) as EventInsertBody;
 
+    if (
+      typeof body.location_id !== "string" ||
+      body.location_id.length === 0
+    ) {
+      return NextResponse.json({ error: "location_id required" }, { status: 400 });
+    }
+
     const row: Database["public"]["Tables"]["events"]["Insert"] = {
       organizer_id: user.id,
+      location_id: body.location_id,
       title: body.title ?? "",
       description: body.description ?? "",
       proposal_file_url: body.proposal_file_url ?? null,
       start_at: body.start_at ?? null,
       end_at: body.end_at ?? null,
       venue: body.venue ?? null,
-      grid_row: body.grid_row ?? 0,
-      grid_col: body.grid_col ?? 0,
       is_open_event: body.is_open_event ?? true,
       is_pinned: body.is_pinned ?? false,
       ticket_capacity: body.ticket_capacity ?? 0,
