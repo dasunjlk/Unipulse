@@ -79,7 +79,7 @@ export default async function OrganizerDashboardPage() {
   const { data: myEvents } = await supabase
     .from("events")
     .select(
-      `id,title,description,is_draft,is_open_event,created_at,start_at,end_at,venue,ticket_capacity,grid_row,grid_col,location_id,locations(code,name,grid_row,grid_col),${EVENT_CATEGORY_LINKS_SELECT}`,
+      `id,title,description,is_draft,is_open_event,created_at,start_at,end_at,venue,ticket_capacity,grid_row,grid_col,location_id,merch_items,locations(code,name,grid_row,grid_col),${EVENT_CATEGORY_LINKS_SELECT}`,
     )
     .eq("organizer_id", user.id)
     .order("created_at", { ascending: false });
@@ -136,6 +136,7 @@ export default async function OrganizerDashboardPage() {
         grid_col: e.grid_col,
         ticket_capacity: e.ticket_capacity,
         registrationCount: regCounts[e.id] ?? 0,
+        merchItems: parseMerchItems(e.merch_items),
         category_ids: flattenLinkedCategories(
           e as unknown as Parameters<typeof flattenLinkedCategories>[0],
         ).map((c) => c.id),

@@ -14,13 +14,8 @@ import {
   TabsList,
   TabsTrigger,
 } from "@/components/ui/tabs";
-import {
-  categoryGradient,
-  formatEventDateTime,
-  inferEventCategory,
-} from "@/lib/event-display";
-import { MERCH_ITEM_TYPES, merchTypeLabel, type MerchItemType } from "@/lib/merch";
 import { categoryGradient, formatEventDateTime } from "@/lib/event-display";
+import { MERCH_ITEM_TYPES, merchTypeLabel, type MerchItemType } from "@/lib/merch";
 
 export type StudentMyEventCard = HomeEventCard & {
   registeredAt: string;
