@@ -1,11 +1,16 @@
 "use client";
 
-import { useState } from "react";
+import Link from "next/link";
+import { useRouter } from "next/navigation";
+import { useEffect, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Spinner } from "@/components/ui/spinner";
+import { Switch } from "@/components/ui/switch";
+import { findClosestLocation, type LocationLite } from "@/lib/venue-match";
+import { cn } from "@/lib/utils";
 
 const MAX_BYTES = 10 * 1024 * 1024;
 
@@ -59,6 +64,25 @@ async function parseJson(res: Response) {
   }
 }
 
+/** Parse extracted date/time into ISO or null (invalid / missing). */
+function buildStartAtIso(dateStr: string | undefined, timeStr: string | undefined): string | null {
+  const d = dateStr?.trim();
+  if (!d) return null;
+  const t = timeStr?.trim() || "00:00";
+  const timePart = t.length === 5 ? `${t}:00` : t;
+
+  let parsed = new Date(`${d} ${timePart}`);
+  if (!Number.isNaN(parsed.getTime())) return parsed.toISOString();
+
+  parsed = new Date(`${d}T${timePart}`);
+  if (!Number.isNaN(parsed.getTime())) return parsed.toISOString();
+
+  parsed = new Date(`${d}T00:00:00`);
+  if (!Number.isNaN(parsed.getTime())) return parsed.toISOString();
+
+  return null;
+}
+
 function FieldRow({ label, value }: { label: string; value: string }) {
   return (
     <div>
@@ -91,6 +115,231 @@ function EventResultCard({ data }: { data: EventFields }) {
           ({ label, value }) =>
             value ? <FieldRow key={label} label={label} value={value} /> : null,
         )}
+      </CardContent>
+    </Card>
+  );
+}
+
+function ConfirmCreateEventPanel({
+  data,
+  onUploadAnother,
+}: {
+  data: EventFields;
+  onUploadAnother: () => void;
+}) {
+  const router = useRouter();
+  const [locations, setLocations] = useState<LocationLite[]>([]);
+  const [loadErr, setLoadErr] = useState<string | null>(null);
+  const [locationId, setLocationId] = useState("");
+  const [autoMatchedId, setAutoMatchedId] = useState<string | null>(null);
+  const [publishNow, setPublishNow] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
+  const [submitErr, setSubmitErr] = useState<string | null>(null);
+  const [createdId, setCreatedId] = useState<string | null>(null);
+  const initRef = useRef(false);
+
+  useEffect(() => {
+    let cancelled = false;
+    void (async () => {
+      try {
+        const res = await fetch("/api/locations");
+        const body = (await res.json()) as {
+          locations?: LocationLite[];
+          error?: string;
+        };
+        if (!res.ok || !body.locations) {
+          throw new Error(body.error ?? "Failed to load locations");
+        }
+        if (!cancelled) {
+          setLocations(body.locations);
+          setLoadErr(null);
+        }
+      } catch (e) {
+        if (!cancelled) {
+          setLoadErr(e instanceof Error ? e.message : "Could not load campus locations.");
+        }
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  useEffect(() => {
+    if (locations.length === 0 || initRef.current) return;
+    initRef.current = true;
+    const m = findClosestLocation(data.venue, locations);
+    if (m) {
+      setLocationId(m.location.id);
+      setAutoMatchedId(m.location.id);
+    }
+  }, [locations, data.venue]);
+
+  async function handleConfirmCreate() {
+    setSubmitErr(null);
+    const title = String(data.eventTitle ?? "").trim();
+    if (!title) {
+      setSubmitErr("Event title is missing.");
+      return;
+    }
+    if (!locationId.trim()) {
+      setSubmitErr("Select a campus location for the map pin.");
+      return;
+    }
+
+    setSubmitting(true);
+    try {
+      const start_at = buildStartAtIso(data.date, data.time);
+      const res = await fetch("/api/events", {
+        method: "POST",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          title,
+          description: data.agenda ?? "",
+          venue: data.venue?.trim() ? data.venue.trim() : null,
+          start_at,
+          end_at: null,
+          location_id: locationId.trim(),
+          is_open_event: true,
+          ticket_capacity: 0,
+          is_draft: !publishNow,
+        }),
+      });
+      const body = await parseJson(res);
+      if (!res.ok) {
+        setSubmitErr(String(body.error ?? res.statusText ?? res.status));
+        return;
+      }
+      const event = body.event as { id?: string } | undefined;
+      const id = event?.id;
+      if (!id) {
+        setSubmitErr("Created event but no id returned.");
+        return;
+      }
+      setCreatedId(id);
+      router.refresh();
+    } catch {
+      setSubmitErr("Network error. Please try again.");
+    } finally {
+      setSubmitting(false);
+    }
+  }
+
+  const summaryRows: { label: string; value: string | undefined }[] = [
+    { label: "Title", value: data.eventTitle },
+    { label: "Date", value: data.date },
+    { label: "Time", value: data.time },
+    { label: "Venue (from PDF)", value: data.venue },
+    { label: "Agenda", value: data.agenda },
+    { label: "Organizer", value: data.organizerName },
+    { label: "Event type", value: data.eventType },
+  ];
+
+  if (createdId) {
+    return (
+      <Card className="border-emerald-500/40 bg-emerald-500/10">
+        <CardHeader className="pb-2">
+          <CardTitle className="text-base text-emerald-100">Event created</CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <p className="text-sm text-emerald-100/90">
+            Your event was saved{publishNow ? " and published" : " as a draft"}.
+          </p>
+          <Button
+            type="button"
+            asChild
+            className="border-0 bg-gradient-to-r from-purple-600 to-blue-600 text-white"
+          >
+            <Link href={`/events/${createdId}`}>View event</Link>
+          </Button>
+          <Button type="button" variant="outline" size="sm" onClick={onUploadAnother}>
+            Upload another PDF
+          </Button>
+        </CardContent>
+      </Card>
+    );
+  }
+
+  return (
+    <Card className="border-purple-500/30 bg-purple-500/5">
+      <CardHeader className="pb-2">
+        <CardTitle className="text-base text-purple-100">Create event from extraction</CardTitle>
+        <p className="text-xs text-muted-foreground">
+          Confirm the campus map pin (auto-matched from venue when possible), then create the event.
+        </p>
+      </CardHeader>
+      <CardContent className="space-y-4">
+        <div className="space-y-3 rounded-lg border border-white/10 bg-black/20 p-3">
+          {summaryRows.map(
+            ({ label, value }) =>
+              value ? <FieldRow key={label} label={label} value={value} /> : null,
+          )}
+        </div>
+
+        <div className="space-y-2">
+          <Label htmlFor="magic-location">Campus location (map pin)</Label>
+          <select
+            id="magic-location"
+            value={locationId}
+            onChange={(e) => setLocationId(e.target.value)}
+            disabled={!!loadErr || locations.length === 0}
+            className={cn(
+              "flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm text-white ring-offset-background",
+              "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2",
+              "disabled:cursor-not-allowed disabled:opacity-50",
+            )}
+          >
+            <option value="">Select campus location…</option>
+            {locations.map((loc) => (
+              <option key={loc.id} value={loc.id}>
+                {loc.code} — {loc.name}
+              </option>
+            ))}
+          </select>
+          {loadErr ? (
+            <p className="text-xs text-destructive">{loadErr}</p>
+          ) : locations.length === 0 ? (
+            <p className="text-xs text-muted-foreground">Loading locations…</p>
+          ) : autoMatchedId && locationId === autoMatchedId ? (
+            <p className="text-xs text-emerald-200/90">Auto-matched from PDF venue text.</p>
+          ) : locationId ? (
+            <p className="text-xs text-muted-foreground">Custom campus location selected.</p>
+          ) : findClosestLocation(data.venue, locations) === null ? (
+            <p className="text-xs text-amber-200/90">
+              No confident venue match — pick the closest campus location above.
+            </p>
+          ) : (
+            <p className="text-xs text-muted-foreground">Pick a campus location to continue.</p>
+          )}
+        </div>
+
+        <div className="flex items-center justify-between gap-4 rounded-lg border border-white/10 bg-white/5 p-4">
+          <div>
+            <p className="text-sm font-medium text-white">Publish immediately</p>
+            <p className="text-xs text-muted-foreground">
+              Off = save as draft (edit or publish from My events)
+            </p>
+          </div>
+          <Switch checked={publishNow} onCheckedChange={setPublishNow} aria-label="Publish immediately" />
+        </div>
+
+        <Button
+          type="button"
+          disabled={!locationId.trim() || submitting || !!loadErr || locations.length === 0}
+          className="w-full border-0 bg-gradient-to-r from-purple-600 to-blue-600 text-white"
+          onClick={() => void handleConfirmCreate()}
+        >
+          {submitting ? (
+            <>
+              <Spinner className="mr-2" />
+              Creating…
+            </>
+          ) : (
+            "Confirm & create event"
+          )}
+        </Button>
+        {submitErr ? <p className="text-sm text-destructive">{submitErr}</p> : null}
       </CardContent>
     </Card>
   );
@@ -165,6 +414,20 @@ export function MagicUploadForm() {
 
   const showForm = state === "idle" || state === "uploading" || state === "error";
 
+  const extracted =
+    result && isEventFields(result) && hasKnownFields(result) ? (result as EventFields) : null;
+  const canCreateFromExtraction =
+    extracted && String(extracted.eventTitle ?? "").trim().length > 0;
+  const confirmPanelKey = extracted
+    ? [
+        extracted.eventTitle ?? "",
+        extracted.date ?? "",
+        extracted.time ?? "",
+        extracted.venue ?? "",
+        fileKey,
+      ].join("|")
+    : String(fileKey);
+
   return (
     <div className="space-y-4">
       {showForm ? (
@@ -226,15 +489,15 @@ export function MagicUploadForm() {
           {isMockApiResponse(result) ? (
             <div className="rounded-lg border border-amber-500/30 bg-amber-500/10 px-4 py-3">
               <p className="text-sm font-medium text-amber-100">n8n returned a mock API message</p>
-              <p className="mt-2 text-sm text-amber-100/90">
+              <p className="text-sm text-amber-100/90 mt-2">
                 Your workflow is hitting a test endpoint (e.g. Beeceptor) instead of returning the
                 OpenAI event fields. Remove or bypass that HTTP Request node and set the Webhook to
                 respond with the output of your JavaScript / OpenAI node.
               </p>
             </div>
           ) : null}
-          {isEventFields(result) && hasKnownFields(result) ? (
-            <EventResultCard data={result} />
+          {extracted ? (
+            <EventResultCard data={extracted} />
           ) : !isWorkflowStartedOnly(result) && !isMockApiResponse(result) ? (
             <Card className="border-white/10 bg-white/5">
               <CardHeader className="pb-2">
@@ -246,6 +509,13 @@ export function MagicUploadForm() {
                 </pre>
               </CardContent>
             </Card>
+          ) : null}
+          {canCreateFromExtraction && extracted ? (
+            <ConfirmCreateEventPanel
+              key={confirmPanelKey}
+              data={extracted}
+              onUploadAnother={handleRetry}
+            />
           ) : null}
           <Button type="button" variant="outline" size="sm" onClick={handleRetry}>
             Upload another PDF
