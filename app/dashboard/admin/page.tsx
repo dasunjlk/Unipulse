@@ -4,6 +4,251 @@ import { AdminOrganizersPanel, GridConfigForm } from "@/app/components/admin-pan
 import { LogoutButton } from "@/app/components/scaffold-actions";
 import { SiteFooter } from "@/components/site-footer";
 import { SiteHeader } from "@/components/site-header";
+import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
+import { Progress } from "@/components/ui/progress";
+import { Separator } from "@/components/ui/separator";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
+import {
+  BarChart3,
+  Bell,
+  CalendarDays,
+  LayoutDashboard,
+  Map,
+  PieChart,
+  Search,
+  Settings,
+  Users,
+  UserCog,
+  FileBarChart,
+} from "lucide-react";
+
+const navItems = [
+  { href: "#dashboard-overview", label: "Dashboard", icon: LayoutDashboard },
+  { href: "#organizer-requests", label: "Organizer Requests", icon: Users },
+  { href: "#events-management", label: "Events Management", icon: CalendarDays },
+  { href: "#campus-map", label: "Campus Map Controls", icon: Map },
+  { href: "#user-management", label: "User Management", icon: UserCog },
+  { href: "#reports", label: "Reports", icon: FileBarChart },
+  { href: "#analytics", label: "Analytics", icon: BarChart3 },
+  { href: "#notifications", label: "Notifications", icon: Bell },
+  { href: "#settings", label: "Settings", icon: Settings },
+] as const;
+
+const mockOrganizers = [
+  {
+    organizer: "Tech Innovators Club",
+    university: "Computer Science Society",
+    email: "tech@mit.edu",
+    date: "2024-01-15",
+    status: "pending",
+  },
+  {
+    organizer: "Music Enthusiasts",
+    university: "Jazz Band",
+    email: "music@berklee.edu",
+    date: "2024-01-14",
+    status: "approved",
+  },
+  {
+    organizer: "Sports United",
+    university: "Stanford Athletics Club",
+    email: "sports@stanford.edu",
+    date: "2024-01-13",
+    status: "pending",
+  },
+  {
+    organizer: "Art Collective",
+    university: "Fine Arts Society",
+    email: "art@risd.edu",
+    date: "2024-01-12",
+    status: "rejected",
+  },
+  {
+    organizer: "Business Leaders",
+    university: "Entrepreneurship Club",
+    email: "biz@harvard.edu",
+    date: "2024-01-11",
+    status: "pending",
+  },
+] as const;
+
+const mockEvents = [
+  {
+    tier: "Free",
+    title: "AI Workshop 2024",
+    org: "Tech Club",
+    date: "Jan 20",
+    attendees: "245 attendees",
+    revenue: null as string | null,
+  },
+  {
+    tier: "Premium",
+    title: "Premium Music Festival",
+    org: "Music Society",
+    date: "Jan 25",
+    attendees: "1200 attendees",
+    revenue: "$12,000 revenue",
+  },
+  {
+    tier: "Free",
+    title: "Hackathon Spring",
+    org: "CS Department",
+    date: "Feb 1",
+    attendees: "500 attendees",
+    revenue: null,
+  },
+  {
+    tier: "Premium",
+    title: "VIP Career Fair",
+    org: "Career Center",
+    date: "Feb 5",
+    attendees: "800 attendees",
+    revenue: "$8,500 revenue",
+  },
+  {
+    tier: "Free",
+    title: "Art Exhibition",
+    org: "Art Club",
+    date: "Feb 10",
+    attendees: "150 attendees",
+    revenue: null,
+  },
+] as const;
+
+const mockUsers = [
+  {
+    user: "John Doe",
+    email: "john@university.edu",
+    role: "student",
+    status: "active",
+    activity: "Last active 2h ago",
+    initials: "JD",
+  },
+  {
+    user: "Jane Smith",
+    email: "jane@university.edu",
+    role: "organizer",
+    status: "active",
+    activity: "Last active 1h ago",
+    initials: "JS",
+  },
+  {
+    user: "Mike Johnson",
+    email: "mike@admin.edu",
+    role: "admin",
+    status: "active",
+    activity: "Online now",
+    initials: "MJ",
+  },
+  {
+    user: "Sarah Wilson",
+    email: "sarah@university.edu",
+    role: "student",
+    status: "suspended",
+    activity: "Suspended 3d ago",
+    initials: "SW",
+  },
+  {
+    user: "Chris Brown",
+    email: "chris@university.edu",
+    role: "organizer",
+    status: "active",
+    activity: "Last active 5h ago",
+    initials: "CB",
+  },
+] as const;
+
+const campusBlocks = [
+  { id: "A1", label: "Main Hall", events: 5 },
+  { id: "A2", label: "Science Building", events: 3 },
+  { id: "B1", label: "Library", events: 2 },
+  { id: "B2", label: "Sports Complex", events: 8 },
+  { id: "C1", label: "Arts Center", events: 4 },
+  { id: "C2", label: "Student Union", events: 12 },
+] as const;
+
+const approvalTrend = [
+  { month: "Jan", value: 42 },
+  { month: "Feb", value: 55 },
+  { month: "Mar", value: 38 },
+  { month: "Apr", value: 62 },
+  { month: "May", value: 58 },
+  { month: "Jun", value: 71 },
+] as const;
+
+const categories = [
+  { name: "Tech", pct: 35 },
+  { name: "Music", pct: 25 },
+  { name: "Sports", pct: 20 },
+  { name: "Career", pct: 15 },
+  { name: "Art", pct: 5 },
+] as const;
+
+function statusBadge(status: string) {
+  const s = status.toLowerCase();
+  if (s === "pending")
+    return (
+      <Badge variant="outline" className="border-amber-500/40 text-amber-200">
+        pending
+      </Badge>
+    );
+  if (s === "approved")
+    return (
+      <Badge variant="outline" className="border-emerald-500/40 text-emerald-200">
+        approved
+      </Badge>
+    );
+  if (s === "rejected")
+    return (
+      <Badge variant="outline" className="border-red-500/40 text-red-200">
+        rejected
+      </Badge>
+    );
+  return (
+    <Badge variant="outline" className="border-white/20">
+      {status}
+    </Badge>
+  );
+}
+
+function StatCard({
+  delta,
+  deltaPositive,
+  value,
+  label,
+}: {
+  delta: string;
+  deltaPositive?: boolean;
+  value: string;
+  label: string;
+}) {
+  return (
+    <Card className="border-white/10 bg-card/50">
+      <CardContent className="p-5">
+        <div className="flex items-start justify-between gap-2">
+          <p
+            className={`text-sm font-medium ${deltaPositive === false ? "text-red-400" : "text-emerald-400"}`}
+          >
+            {delta}
+          </p>
+        </div>
+        <p className="mt-2 text-2xl font-bold tracking-tight text-white">{value}</p>
+        <p className="mt-1 text-xs text-muted-foreground">{label}</p>
+      </CardContent>
+    </Card>
+  );
+}
 
 export default async function AdminDashboardPage() {
   const supabase = createClient();
@@ -43,27 +288,493 @@ export default async function AdminDashboardPage() {
     );
   }
 
+  const adminInitial =
+    user.email?.slice(0, 2).toUpperCase() ??
+    (typeof user.user_metadata?.full_name === "string"
+      ? user.user_metadata.full_name.slice(0, 2).toUpperCase()
+      : null) ??
+    "AD";
+
+  const today = new Intl.DateTimeFormat("en-US", {
+    weekday: "long",
+    month: "long",
+    day: "numeric",
+    year: "numeric",
+  }).format(new Date());
+
   return (
-    <div className="flex min-h-screen flex-col">
-      <SiteHeader />
-      <main className="flex-1">
-        <div className="border-b border-white/10 bg-card/30">
-          <div className="container mx-auto flex flex-wrap items-center justify-between gap-4 px-4 py-8">
-            <h1 className="text-3xl font-bold text-white">Admin</h1>
+    <div className="flex min-h-screen bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-purple-950/40 via-background to-background">
+      {/* Sidebar */}
+      <aside className="hidden w-60 shrink-0 flex-col border-r border-white/10 bg-card/30 backdrop-blur-xl md:flex lg:w-64">
+        <div className="flex flex-col gap-1 border-b border-white/10 p-6">
+          <p className="text-xs font-semibold uppercase tracking-wider text-purple-300">UniPulse</p>
+          <p className="text-lg font-bold text-white">Admin Panel</p>
+        </div>
+        <nav className="flex flex-1 flex-col gap-0.5 p-3">
+          {navItems.map(({ href, label, icon: Icon }) => (
+            <a
+              key={href}
+              href={href}
+              className="flex items-center gap-3 rounded-lg px-3 py-2 text-sm text-muted-foreground transition-colors hover:bg-white/5 hover:text-white"
+            >
+              <Icon className="h-4 w-4 shrink-0 opacity-80" aria-hidden />
+              {label}
+            </a>
+          ))}
+        </nav>
+        <div className="border-t border-white/10 p-4">
+          <div className="rounded-lg border border-emerald-500/25 bg-emerald-500/10 px-3 py-2 text-xs">
+            <p className="font-semibold text-emerald-300">System</p>
+            <p className="text-emerald-100/90">Active</p>
+          </div>
+          <p className="mt-3 text-xs text-muted-foreground">{today}</p>
+          <Separator className="my-4 bg-white/10" />
+          <LogoutButton />
+        </div>
+      </aside>
+
+      {/* Main */}
+      <div className="flex min-h-screen flex-1 flex-col">
+        <header className="sticky top-0 z-10 border-b border-white/10 bg-background/80 backdrop-blur-md">
+          <div className="flex flex-col gap-4 px-4 py-4 md:flex-row md:items-center md:justify-between lg:px-8">
+            <div id="dashboard-overview">
+              <h1 className="text-xl font-bold text-white md:text-2xl">Dashboard Overview</h1>
+              <p className="text-sm text-muted-foreground">
+                Monitor and manage your campus platform
+              </p>
+            </div>
+            <div className="flex flex-wrap items-center gap-3">
+              <Button variant="secondary" size="sm" asChild>
+                <Link href="/dashboard/admin">Refresh Data</Link>
+              </Button>
+              <div className="relative flex-1 md:max-w-xs lg:max-w-md">
+                <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                <Input
+                  readOnly
+                  placeholder="Search events, organizers..."
+                  className="border-white/10 bg-card/40 pl-9"
+                  aria-label="Search (preview)"
+                />
+              </div>
+              <Button variant="ghost" size="icon" className="relative shrink-0 text-muted-foreground">
+                <Bell className="h-5 w-5" />
+                <span className="absolute right-1 top-1 flex h-4 min-w-4 items-center justify-center rounded-full bg-purple-600 px-1 text-[10px] font-bold text-white">
+                  5
+                </span>
+              </Button>
+              <div className="flex items-center gap-2 rounded-full border border-white/10 bg-card/40 py-1 pl-1 pr-3">
+                <Avatar className="h-9 w-9 border border-white/10">
+                  <AvatarFallback className="bg-gradient-to-br from-purple-600 to-blue-600 text-xs font-semibold text-white">
+                    {adminInitial}
+                  </AvatarFallback>
+                </Avatar>
+                <div className="hidden text-left text-xs sm:block">
+                  <p className="font-medium text-white">Admin</p>
+                  <p className="max-w-[140px] truncate text-muted-foreground">{user.email ?? "—"}</p>
+                </div>
+              </div>
+            </div>
+          </div>
+        </header>
+
+        <main className="flex-1 space-y-10 px-4 py-8 lg:px-8">
+          {/* KPI row */}
+          <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+            <StatCard delta="+12%" value="248" label="Total Organizers" />
+            <StatCard delta="+5" value="23" label="Pending Requests" />
+            <StatCard delta="+8%" value="87" label="Active Events" />
+            <StatCard delta="+342" value="12,847" label="Total Students" />
+            <StatCard delta="+18%" value="$24,580" label="Revenue Overview" />
+            <StatCard delta="-2%" deltaPositive={false} value="78.5%" label="Engagement Rate" />
+          </section>
+
+          {/* Charts row */}
+          <section id="analytics" className="grid gap-6 lg:grid-cols-5">
+            <Card className="border-white/10 bg-card/50 lg:col-span-3">
+              <CardHeader className="flex flex-row flex-wrap items-center justify-between gap-2 pb-2">
+                <CardTitle className="text-base font-semibold text-white">
+                  Organizer Approval Requests
+                </CardTitle>
+                <Badge variant="secondary" className="bg-amber-500/15 text-amber-100">
+                  Live pipeline
+                </Badge>
+              </CardHeader>
+              <CardContent>
+                <div className="flex h-44 items-end justify-between gap-2 border-b border-white/10 pb-2 pt-4">
+                  {approvalTrend.map(({ month, value }) => (
+                    <div key={month} className="flex flex-1 flex-col items-center gap-2">
+                      <div
+                        className="w-full max-w-[40px] rounded-t-md bg-gradient-to-t from-purple-900/80 to-purple-500"
+                        style={{ height: `${(value / 80) * 100}%`, minHeight: "28%" }}
+                        title={`${month}: ${value}`}
+                      />
+                      <span className="text-[10px] text-muted-foreground">{month}</span>
+                    </div>
+                  ))}
+                </div>
+                <div className="mt-4 flex justify-between text-xs text-muted-foreground">
+                  <span>0</span>
+                  <span>20</span>
+                  <span>40</span>
+                  <span>60</span>
+                  <span>80</span>
+                </div>
+              </CardContent>
+            </Card>
+
+            <Card className="border-white/10 bg-card/50 lg:col-span-2">
+              <CardHeader className="pb-2">
+                <CardTitle className="flex items-center gap-2 text-base font-semibold text-white">
+                  <PieChart className="h-4 w-4 text-purple-400" aria-hidden />
+                  Popular Categories
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                {categories.map(({ name, pct }) => (
+                  <div key={name} className="space-y-1.5">
+                    <div className="flex justify-between text-xs">
+                      <span className="text-muted-foreground">{name}</span>
+                      <span className="text-white">{pct}%</span>
+                    </div>
+                    <Progress value={pct} className="h-2 bg-white/10 [&>div]:bg-purple-500" />
+                  </div>
+                ))}
+              </CardContent>
+            </Card>
+          </section>
+
+          {/* Organizer snapshot + performance */}
+          <section id="reports" className="grid gap-6 lg:grid-cols-2">
+            <Card className="border-white/10 bg-card/50">
+              <CardHeader>
+                <CardTitle className="text-white">Organizer snapshot</CardTitle>
+                <p className="text-sm text-muted-foreground">
+                  Illustrative approvals mix — cross-check with live pending queue below.
+                </p>
+              </CardHeader>
+              <CardContent className="overflow-x-auto">
+                <Table>
+                  <TableHeader>
+                    <TableRow className="border-white/10 hover:bg-transparent">
+                      <TableHead>Organizer</TableHead>
+                      <TableHead className="hidden md:table-cell">University / Club</TableHead>
+                      <TableHead className="hidden lg:table-cell">Email</TableHead>
+                      <TableHead>Date</TableHead>
+                      <TableHead>Status</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {mockOrganizers.map((row) => (
+                      <TableRow key={row.email} className="border-white/10">
+                        <TableCell className="font-medium text-white">{row.organizer}</TableCell>
+                        <TableCell className="hidden max-w-[140px] truncate text-muted-foreground md:table-cell">
+                          {row.university}
+                        </TableCell>
+                        <TableCell className="hidden text-muted-foreground lg:table-cell">
+                          {row.email}
+                        </TableCell>
+                        <TableCell className="text-muted-foreground">{row.date}</TableCell>
+                        <TableCell>{statusBadge(row.status)}</TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </CardContent>
+            </Card>
+
+            <Card className="border-white/10 bg-card/50">
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2 text-white">
+                  <BarChart3 className="h-5 w-5 text-purple-400" aria-hidden />
+                  Event Performance
+                </CardTitle>
+                <p className="text-sm text-muted-foreground">
+                  Engagement vs. baseline — demo visualization for roadmap analytics.
+                </p>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                {[
+                  { label: "Registrations", pct: 82 },
+                  { label: "Check-ins", pct: 64 },
+                  { label: "Feedback", pct: 41 },
+                ].map((row) => (
+                  <div key={row.label} className="space-y-2">
+                    <div className="flex justify-between text-sm">
+                      <span className="text-muted-foreground">{row.label}</span>
+                      <span className="text-white">{row.pct}%</span>
+                    </div>
+                    <Progress value={row.pct} className="h-2 bg-white/10 [&>div]:bg-blue-500" />
+                  </div>
+                ))}
+              </CardContent>
+            </Card>
+          </section>
+
+          {/* Live organizer queue */}
+          <section id="organizer-requests">
+            <div className="mb-4 flex flex-wrap items-end justify-between gap-3">
+              <div>
+                <h2 className="text-lg font-semibold text-white">Pending approvals</h2>
+                <p className="text-sm text-muted-foreground">
+                  Approve or reject organizer applications connected to your database.
+                </p>
+              </div>
+            </div>
+            <AdminOrganizersPanel />
+          </section>
+
+          {/* Events */}
+          <section id="events-management">
+            <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
+              <h2 className="text-lg font-semibold text-white">Event Management</h2>
+              <Button
+                type="button"
+                className="border-0 bg-gradient-to-r from-purple-600 to-blue-600 text-white"
+              >
+                Add Event
+              </Button>
+            </div>
+            <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+              {mockEvents.map((ev) => (
+                <Card key={ev.title} className="border-white/10 bg-card/50">
+                  <CardHeader className="pb-2">
+                    <div className="flex items-start justify-between gap-2">
+                      <Badge
+                        variant="outline"
+                        className={
+                          ev.tier === "Premium"
+                            ? "border-purple-400/40 text-purple-200"
+                            : "border-white/20 text-muted-foreground"
+                        }
+                      >
+                        {ev.tier}
+                      </Badge>
+                    </div>
+                    <CardTitle className="text-base text-white">{ev.title}</CardTitle>
+                  </CardHeader>
+                  <CardContent className="space-y-1 text-sm text-muted-foreground">
+                    <p>{ev.org}</p>
+                    <p>{ev.date}</p>
+                    <p>{ev.attendees}</p>
+                    {ev.revenue ? <p className="text-purple-200">{ev.revenue}</p> : null}
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
+          </section>
+
+          {/* Campus map */}
+          <section id="campus-map">
+            <div className="mb-4 space-y-1">
+              <h2 className="text-lg font-semibold text-white">Campus Map Controls</h2>
+              <p className="text-sm text-muted-foreground">
+                Adjust grid dimensions and coordinate labels — wired to your admin config API.
+              </p>
+            </div>
+            <div className="grid gap-6 lg:grid-cols-2">
+              <Card className="border-white/10 bg-card/50">
+                <CardHeader>
+                  <CardTitle className="text-white">Campus Preview</CardTitle>
+                  <p className="text-xs text-muted-foreground">
+                    Sample heat counts per block — illustrative only.
+                  </p>
+                </CardHeader>
+                <CardContent>
+                  <div className="grid grid-cols-3 gap-2 rounded-xl border border-white/10 bg-black/20 p-4">
+                    {[
+                      [5, 3, 2],
+                      [8, 4, 12],
+                      [null, null, null],
+                    ].flatMap((row, ri) =>
+                      row.map((cell, ci) =>
+                        cell != null ? (
+                          <div
+                            key={`${ri}-${ci}`}
+                            className="flex aspect-square items-center justify-center rounded-lg bg-purple-600/25 text-lg font-semibold text-white"
+                          >
+                            {cell}
+                          </div>
+                        ) : (
+                          <div key={`${ri}-${ci}`} className="aspect-square rounded-lg bg-white/5" />
+                        ),
+                      ),
+                    )}
+                  </div>
+                </CardContent>
+              </Card>
+              <GridConfigForm />
+            </div>
+            <Card className="mt-6 border-white/10 bg-card/50">
+              <CardHeader>
+                <CardTitle className="text-white">Edit Campus Blocks</CardTitle>
+              </CardHeader>
+              <CardContent className="overflow-x-auto">
+                <Table>
+                  <TableHeader>
+                    <TableRow className="border-white/10 hover:bg-transparent">
+                      <TableHead>Block</TableHead>
+                      <TableHead>Label</TableHead>
+                      <TableHead className="text-right">Events</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {campusBlocks.map((b) => (
+                      <TableRow key={b.id} className="border-white/10">
+                        <TableCell className="font-mono text-purple-200">{b.id}</TableCell>
+                        <TableCell className="text-white">{b.label}</TableCell>
+                        <TableCell className="text-right text-muted-foreground">
+                          {b.events} events
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </CardContent>
+            </Card>
+          </section>
+
+          {/* Users */}
+          <section id="user-management">
+            <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
+              <h2 className="text-lg font-semibold text-white">User Management</h2>
+              <Badge variant="outline" className="border-white/20">
+                All Users (demo)
+              </Badge>
+            </div>
+            <Card className="border-white/10 bg-card/50">
+              <CardContent className="overflow-x-auto p-0">
+                <Table>
+                  <TableHeader>
+                    <TableRow className="border-white/10 hover:bg-transparent">
+                      <TableHead className="w-14" />
+                      <TableHead>User</TableHead>
+                      <TableHead className="hidden md:table-cell">Email</TableHead>
+                      <TableHead>Role</TableHead>
+                      <TableHead>Status</TableHead>
+                      <TableHead className="hidden lg:table-cell">Activity</TableHead>
+                      <TableHead className="text-right">Actions</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {mockUsers.map((u) => (
+                      <TableRow key={u.email} className="border-white/10">
+                        <TableCell>
+                          <Avatar className="h-8 w-8 border border-white/10">
+                            <AvatarFallback className="bg-white/10 text-[10px] text-white">
+                              {u.initials}
+                            </AvatarFallback>
+                          </Avatar>
+                        </TableCell>
+                        <TableCell className="font-medium text-white">{u.user}</TableCell>
+                        <TableCell className="hidden text-muted-foreground md:table-cell">
+                          {u.email}
+                        </TableCell>
+                        <TableCell className="capitalize text-muted-foreground">{u.role}</TableCell>
+                        <TableCell>
+                          <Badge
+                            variant="outline"
+                            className={
+                              u.status === "active"
+                                ? "border-emerald-500/40 text-emerald-200"
+                                : "border-red-500/40 text-red-200"
+                            }
+                          >
+                            {u.status}
+                          </Badge>
+                        </TableCell>
+                        <TableCell className="hidden text-muted-foreground lg:table-cell">
+                          {u.activity}
+                        </TableCell>
+                        <TableCell className="text-right">
+                          <Button variant="ghost" size="sm" className="text-purple-300">
+                            Manage
+                          </Button>
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </CardContent>
+            </Card>
+          </section>
+
+          {/* Placeholders for remaining nav targets */}
+          <section id="notifications" className="grid gap-4 md:grid-cols-2">
+            <Card className="border-white/10 bg-card/40">
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2 text-white">
+                  <Bell className="h-4 w-4" aria-hidden />
+                  Notifications
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="text-sm text-muted-foreground">
+                Configure delivery channels and escalation rules in a future sprint — no backend yet.
+              </CardContent>
+            </Card>
+            <Card id="settings" className="border-white/10 bg-card/40">
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2 text-white">
+                  <Settings className="h-4 w-4" aria-hidden />
+                  Settings
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="text-sm text-muted-foreground">
+                Platform branding, SSO, and audit retention — placeholders only for now.
+              </CardContent>
+            </Card>
+          </section>
+
+          <section className="grid gap-4 pb-8 md:grid-cols-2">
+            <Card className="border-white/10 bg-card/40">
+              <CardHeader>
+                <CardTitle className="text-white">Attendance Overview</CardTitle>
+              </CardHeader>
+              <CardContent className="text-sm text-muted-foreground">
+                Summary charts hook here once attendance telemetry lands.
+              </CardContent>
+            </Card>
+            <Card className="border-white/10 bg-card/40">
+              <CardHeader>
+                <CardTitle className="text-white">Organizer Growth</CardTitle>
+              </CardHeader>
+              <CardContent className="text-sm text-muted-foreground">
+                Week-over-week trend widgets align with your CRM exports when connected.
+              </CardContent>
+            </Card>
+          </section>
+
+          <div className="flex justify-center border-t border-white/10 pt-8 md:hidden">
             <LogoutButton />
           </div>
-        </div>
-        <div className="container mx-auto space-y-8 px-4 py-10">
-          <AdminOrganizersPanel />
-          <GridConfigForm />
-          <div className="text-center">
+          <div className="flex justify-center pb-8 md:hidden">
             <Link href="/" className="text-sm text-purple-300 hover:underline">
               Back to home
             </Link>
           </div>
+          <div className="hidden justify-center pb-8 md:flex">
+            <Link href="/" className="text-sm text-muted-foreground hover:text-purple-300">
+              ← Back to UniPulse Home
+            </Link>
+          </div>
+        </main>
+      </div>
+
+      {/* Mobile nav strip */}
+      <div className="fixed bottom-0 left-0 right-0 z-20 flex border-t border-white/10 bg-background/95 p-2 backdrop-blur-md md:hidden">
+        <div className="flex w-full justify-around gap-1 overflow-x-auto">
+          {navItems.slice(0, 5).map(({ href, label, icon: Icon }) => (
+            <a
+              key={href}
+              href={href}
+              className="flex flex-col items-center gap-0.5 rounded-lg px-2 py-1 text-[10px] text-muted-foreground"
+            >
+              <Icon className="h-4 w-4" aria-hidden />
+              <span className="max-w-[56px] truncate">{label.split(" ")[0]}</span>
+            </a>
+          ))}
         </div>
-      </main>
-      <SiteFooter />
+      </div>
+      <div className="h-14 md:hidden" aria-hidden />
     </div>
   );
 }
