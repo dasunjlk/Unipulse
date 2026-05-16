@@ -94,10 +94,21 @@ export async function PATCH(request: Request, context: Ctx) {
     }
 
     if (existing.is_draft && data.is_draft === false) {
+      const { data: organizerProfile } = await supabase
+        .from("profiles")
+        .select("full_name, whatsapp_number, whatsapp_consent")
+        .eq("id", data.organizer_id)
+        .single();
+
       void triggerWebhook("event-published", {
         event_id: data.id,
         title: data.title,
         organizer_id: data.organizer_id,
+        organizer_full_name: organizerProfile?.full_name ?? null,
+        organizer_whatsapp:
+          organizerProfile?.whatsapp_consent && organizerProfile?.whatsapp_number
+            ? organizerProfile.whatsapp_number
+            : null,
       });
     }
 

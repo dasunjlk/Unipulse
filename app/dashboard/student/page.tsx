@@ -1,10 +1,12 @@
 import Link from "next/link";
 import type { StudentMyEventCard } from "@/app/components/student-dashboard-tabs";
 import { StudentDashboardTabs } from "@/app/components/student-dashboard-tabs";
+import { WhatsappSettingsCard } from "@/app/components/whatsapp-settings";
 import type { HomeEventCard } from "@/components/events-section";
 import { SiteFooter } from "@/components/site-footer";
 import { SiteHeader } from "@/components/site-header";
 import { createClient } from "@/lib/supabase/server";
+import { storedWhatsappToDisplay } from "@/lib/auth/phone";
 
 function eventSelectFields() {
   return "id,title,description,start_at,venue,upvote_count,is_open_event,is_pinned,is_draft" as const;
@@ -150,6 +152,20 @@ export default async function StudentDashboardPage() {
         </div>
 
         <div className="container mx-auto space-y-6 px-4 py-10">
+          {!profile.whatsapp_number ? (
+            <>
+              <div className="rounded-xl border border-amber-500/30 bg-amber-500/10 px-4 py-3 text-sm text-amber-100">
+                Add your WhatsApp number to get reminders for events you register for.{" "}
+                <a href="#whatsapp-settings" className="font-medium text-amber-50 underline">
+                  Update WhatsApp settings
+                </a>
+              </div>
+              <WhatsappSettingsCard
+                initialDisplay={storedWhatsappToDisplay(profile.whatsapp_number)}
+                initialConsent={profile.whatsapp_consent}
+              />
+            </>
+          ) : null}
           <StudentDashboardTabs
             allEvents={allEvents}
             upcomingEvents={upcomingEvents}

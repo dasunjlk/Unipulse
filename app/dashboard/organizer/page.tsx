@@ -2,11 +2,13 @@ import Link from "next/link";
 import type { ReactNode } from "react";
 import type { OrganizerEventRowSerialized } from "@/app/components/organizer-events-panel";
 import { OrganizerEventsPanel } from "@/app/components/organizer-events-panel";
+import { WhatsappSettingsCard } from "@/app/components/whatsapp-settings";
 import { MagicUploadForm } from "@/components/magic-upload-form";
 import { SiteFooter } from "@/components/site-footer";
 import { SiteHeader } from "@/components/site-header";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { createClient } from "@/lib/supabase/server";
+import { storedWhatsappToDisplay } from "@/lib/auth/phone";
 import { Activity, DollarSign, Ticket, TrendingUp } from "lucide-react";
 
 export default async function OrganizerDashboardPage() {
@@ -147,13 +149,30 @@ export default async function OrganizerDashboardPage() {
             <div>
               <h1 className="text-3xl font-bold text-white">Organizer dashboard</h1>
               <p className="mt-1 text-muted-foreground">
-                Welcome back{profile.full_name ? `, ${profile.full_name}` : ""}
+                Welcome back
+                {profile.full_name ? `, ${profile.full_name}` : ""}
+                {profile.club_name ? ` — ${profile.club_name}` : ""}
               </p>
             </div>
           </div>
         </div>
 
         <div className="container mx-auto space-y-10 px-4 py-10">
+          {!profile.whatsapp_number ? (
+            <>
+              <div className="rounded-xl border border-amber-500/30 bg-amber-500/10 px-4 py-3 text-sm text-amber-100">
+                Add your WhatsApp number to get instant updates when your events are published.{" "}
+                <a href="#whatsapp-settings" className="font-medium text-amber-50 underline">
+                  Update WhatsApp settings
+                </a>
+              </div>
+              <WhatsappSettingsCard
+                initialDisplay={storedWhatsappToDisplay(profile.whatsapp_number)}
+                initialConsent={profile.whatsapp_consent}
+              />
+            </>
+          ) : null}
+
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
             <StatCard
               label="Total Events"

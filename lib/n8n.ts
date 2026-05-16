@@ -6,7 +6,7 @@ import crypto from "crypto";
  * Expected workflow paths on your n8n instance (relative to `N8N_BASE_URL`):
  * - POST `/webhook/proposal-uploaded` — organizer uploaded a proposal file URL
  * - POST `/webhook/organizer-approved` — admin approved a pending organizer
- * - POST `/webhook/event-published` — event left draft / became visible to students
+ * - POST `/webhook/event-published` — event left draft / became visible to students (payload includes optional `organizer_full_name`, `organizer_whatsapp` when consent + number present)
  * - POST `/webhook/merch-manifest-export` — compile merch sheet → PDF email
  *
  * Inbound callbacks (n8n → Next.js) live under `/api/onboard/callback` with header `X-N8N-Signature`.

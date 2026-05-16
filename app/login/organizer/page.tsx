@@ -32,6 +32,7 @@ export default function OrganizerLoginPage() {
               <EmailLoginForm
                 submitLabel="Access Dashboard"
                 redirectTo="/dashboard/organizer"
+                hideClub
               />
             </div>
             <p className="mt-6 text-center text-sm text-muted-foreground">

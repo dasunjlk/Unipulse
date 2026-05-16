@@ -59,6 +59,8 @@ export function StudentSignupForm() {
         university_id: fd.get("university_id"),
         full_name: fd.get("full_name"),
         password: fd.get("password"),
+        whatsapp_number: String(fd.get("whatsapp_number") ?? "").trim() || undefined,
+        whatsapp_consent: fd.get("whatsapp_consent") === "on",
       }),
     });
     const body = await parseJson(res);
@@ -86,6 +88,29 @@ export function StudentSignupForm() {
           autoComplete="new-password"
         />
       </div>
+      <div className="space-y-2">
+        <Label htmlFor="whatsapp_student">WhatsApp number (optional)</Label>
+        <Input
+          id="whatsapp_student"
+          name="whatsapp_number"
+          type="tel"
+          inputMode="tel"
+          autoComplete="tel"
+          placeholder="e.g. 0715544320"
+        />
+        <p className="text-xs text-muted-foreground">
+          Sri Lankan mobile — stored as 94XXXXXXXXX for messaging later.
+        </p>
+      </div>
+      <label className="flex cursor-pointer items-start gap-2 text-sm text-muted-foreground">
+        <input
+          type="checkbox"
+          name="whatsapp_consent"
+          defaultChecked
+          className="mt-1 rounded border-white/20 bg-transparent"
+        />
+        <span>Notify me on WhatsApp about events (when we enable this).</span>
+      </label>
       <Button
         type="submit"
         className="w-full border-0 bg-gradient-to-r from-purple-600 to-blue-600 text-white"
@@ -113,6 +138,8 @@ export function OrganizerSignupForm() {
         full_name: fd.get("full_name"),
         club_name: fd.get("club_name"),
         password: fd.get("password"),
+        whatsapp_number: String(fd.get("whatsapp_number") ?? "").trim(),
+        whatsapp_consent: fd.get("whatsapp_consent") === "on",
       }),
     });
     const body = await parseJson(res);
@@ -133,6 +160,30 @@ export function OrganizerSignupForm() {
         <Label htmlFor="club_name">Club name</Label>
         <Input id="club_name" name="club_name" required />
       </div>
+      <div className="space-y-2">
+        <Label htmlFor="whatsapp_org">WhatsApp number</Label>
+        <Input
+          id="whatsapp_org"
+          name="whatsapp_number"
+          type="tel"
+          inputMode="tel"
+          autoComplete="tel"
+          required
+          placeholder="e.g. 0715544320"
+        />
+        <p className="text-xs text-muted-foreground">
+          Sri Lankan mobile — we&apos;ll message you when your events go live.
+        </p>
+      </div>
+      <label className="flex cursor-pointer items-start gap-2 text-sm text-muted-foreground">
+        <input
+          type="checkbox"
+          name="whatsapp_consent"
+          defaultChecked
+          className="mt-1 rounded border-white/20 bg-transparent"
+        />
+        <span>I agree to receive WhatsApp notifications about my organizer activity.</span>
+      </label>
       <div className="space-y-2">
         <Label htmlFor="password_org">Password</Label>
         <Input
@@ -183,7 +234,7 @@ export function StudentLoginForm() {
     const body = await parseJson(res);
     setMsg(res.ok ? "Welcome back — redirected soon." : String(body.error ?? res.status));
     if (res.ok) {
-      window.location.href = "/";
+      window.location.href = "/dashboard/student";
     }
   }
 

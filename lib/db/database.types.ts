@@ -21,6 +21,8 @@ export interface Database {
           role: UserRole;
           account_status: AccountStatus;
           manual_interests: string[];
+          whatsapp_number: string | null;
+          whatsapp_consent: boolean;
           created_at: string;
         };
         Insert: {
@@ -31,6 +33,8 @@ export interface Database {
           role?: UserRole;
           account_status?: AccountStatus;
           manual_interests?: string[];
+          whatsapp_number?: string | null;
+          whatsapp_consent?: boolean;
           created_at?: string;
         };
         Update: {
@@ -40,6 +44,8 @@ export interface Database {
           role?: UserRole;
           account_status?: AccountStatus;
           manual_interests?: string[];
+          whatsapp_number?: string | null;
+          whatsapp_consent?: boolean;
         };
         Relationships: [];
       };

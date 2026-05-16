@@ -55,12 +55,32 @@ export async function SiteHeader() {
     };
   }
 
+  let dashboardHref: string | null = null;
+  if (userMenuProps) {
+    dashboardHref =
+      userMenuProps.role === "organizer"
+        ? "/dashboard/organizer"
+        : userMenuProps.role === "admin"
+          ? "/dashboard/admin"
+          : "/dashboard/student";
+  }
+
   return (
     <header className="sticky top-0 z-50 border-b border-white/10 bg-background/80 backdrop-blur-xl">
       <div className="container mx-auto flex items-center justify-between px-4 py-4">
-        <Link href="/map" className="text-sm font-medium text-muted-foreground hover:text-white">
-          Campus Map
-        </Link>
+        <nav className="flex items-center gap-6">
+          <Link href="/map" className="text-sm font-medium text-muted-foreground hover:text-white">
+            Campus Map
+          </Link>
+          {dashboardHref ? (
+            <Link
+              href={dashboardHref}
+              className="text-sm font-medium text-muted-foreground hover:text-white"
+            >
+              Dashboard
+            </Link>
+          ) : null}
+        </nav>
         <Link href="/" className="flex items-center gap-2 text-lg font-bold tracking-tight text-white">
           <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-gradient-to-br from-purple-600 to-blue-600 text-sm font-black">
             U
