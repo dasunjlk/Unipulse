@@ -1,8 +1,8 @@
 import Link from "next/link";
 import type { ReactNode } from "react";
-import { ProposalUploadForm } from "@/app/components/scaffold-actions";
 import type { OrganizerEventRowSerialized } from "@/app/components/organizer-events-panel";
 import { OrganizerEventsPanel } from "@/app/components/organizer-events-panel";
+import { MagicUploadForm } from "@/components/magic-upload-form";
 import { SiteFooter } from "@/components/site-footer";
 import { SiteHeader } from "@/components/site-header";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -179,13 +179,13 @@ export default async function OrganizerDashboardPage() {
 
           <Card className="border-white/10 bg-card/50 backdrop-blur-xl">
             <CardHeader>
-              <CardTitle className="text-white">Magic onboarding</CardTitle>
+              <CardTitle className="text-white">Magic upload (live OpenAI)</CardTitle>
               <p className="text-sm text-muted-foreground">
-                Upload a proposal — triggers n8n proposal-uploaded webhook.
+                Upload an event PDF — n8n extracts structured fields and returns them instantly.
               </p>
             </CardHeader>
             <CardContent>
-              <ProposalUploadForm />
+              <MagicUploadForm />
             </CardContent>
           </Card>
 
