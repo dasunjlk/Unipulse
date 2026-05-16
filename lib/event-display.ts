@@ -17,6 +17,16 @@ const KEYWORDS: Array<{ keys: string[]; category: string }> = [
 ];
 
 export function inferEventCategory(title: string, description: string): string {
+  const explicit = description.match(/^\s*category:\s*([^\n\r]+)/im);
+  if (explicit) {
+    const label = explicit[1].trim();
+    const known = Object.keys(CATEGORY_GRADIENTS).find(
+      (k) => k.toLowerCase() === label.toLowerCase(),
+    );
+    if (known) return known;
+    if (label) return label;
+  }
+
   const blob = `${title} ${description}`.toLowerCase();
   for (const row of KEYWORDS) {
     if (row.keys.some((k) => blob.includes(k))) {

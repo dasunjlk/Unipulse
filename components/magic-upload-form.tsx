@@ -8,43 +8,23 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Spinner } from "@/components/ui/spinner";
+import { categoryGradient } from "@/lib/event-display";
+import {
+  hasMagicUploadFields,
+  normalizeMagicUploadResponse,
+  type MagicUploadFields,
+} from "@/lib/magic-upload-extract";
 import { Switch } from "@/components/ui/switch";
 import { findClosestLocation, type LocationLite } from "@/lib/venue-match";
 import { cn } from "@/lib/utils";
 
 const MAX_BYTES = 10 * 1024 * 1024;
 
-type EventFields = {
-  eventTitle?: string;
-  date?: string;
-  time?: string;
-  venue?: string;
-  agenda?: string;
-  organizerName?: string;
-  eventType?: string;
-};
-
 type UploadState = "idle" | "uploading" | "success" | "error";
-
-function isEventFields(data: unknown): data is EventFields {
-  return typeof data === "object" && data !== null;
-}
-
-function hasKnownFields(data: EventFields): boolean {
-  return Boolean(
-    data.eventTitle ??
-      data.date ??
-      data.time ??
-      data.venue ??
-      data.agenda ??
-      data.organizerName ??
-      data.eventType,
-  );
-}
 
 function isWorkflowStartedOnly(data: Record<string, unknown>): boolean {
   const msg = String(data.message ?? "").toLowerCase();
-  return msg.includes("workflow was started") && !hasKnownFields(data as EventFields);
+  return msg.includes("workflow was started") && !hasMagicUploadFields(normalizeMagicUploadResponse(data));
 }
 
 function isMockApiResponse(data: Record<string, unknown>): boolean {
@@ -94,8 +74,21 @@ function FieldRow({ label, value }: { label: string; value: string }) {
   );
 }
 
-function EventResultCard({ data }: { data: EventFields }) {
-  const fields: { label: string; value: string | undefined }[] = [
+function DescriptionBlock({ value }: { value: string }) {
+  return (
+    <div>
+      <p className="text-xs font-medium uppercase tracking-wider text-muted-foreground">
+        Description
+      </p>
+      <p className="mt-0.5 max-h-48 overflow-y-auto whitespace-pre-wrap text-sm text-white">
+        {value}
+      </p>
+    </div>
+  );
+}
+
+function EventResultCard({ data }: { data: MagicUploadFields }) {
+  const scalarFields: { label: string; value: string | undefined }[] = [
     { label: "Event title", value: data.eventTitle },
     { label: "Date", value: data.date },
     { label: "Time", value: data.time },
@@ -105,16 +98,30 @@ function EventResultCard({ data }: { data: EventFields }) {
     { label: "Event type", value: data.eventType },
   ];
 
+  const categoryLabel = data.category ?? "";
+  const gradient = categoryLabel ? categoryGradient(categoryLabel) : "";
+
   return (
     <Card className="border-emerald-500/30 bg-emerald-500/5">
       <CardHeader className="pb-2">
-        <CardTitle className="text-base text-emerald-100">Extracted event details</CardTitle>
+        <div className="flex flex-wrap items-center gap-3">
+          <CardTitle className="text-base text-emerald-100">Extracted event details</CardTitle>
+          {categoryLabel ? (
+            <span
+              className={`inline-block rounded-full bg-gradient-to-r px-3 py-1 text-xs font-medium text-white ${gradient}`}
+            >
+              {categoryLabel}
+            </span>
+          ) : null}
+        </div>
       </CardHeader>
       <CardContent className="space-y-3">
-        {fields.map(
-          ({ label, value }) =>
-            value ? <FieldRow key={label} label={label} value={value} /> : null,
-        )}
+        {data.description ? <DescriptionBlock value={data.description} /> : null}
+        {scalarFields.map(({ label, value }) => {
+          if (!value) return null;
+          if (label === "Agenda" && value === data.description) return null;
+          return <FieldRow key={label} label={label} value={value} />;
+        })}
       </CardContent>
     </Card>
   );
@@ -348,7 +355,7 @@ function ConfirmCreateEventPanel({
 export function MagicUploadForm() {
   const [state, setState] = useState<UploadState>("idle");
   const [error, setError] = useState<string | null>(null);
-  const [result, setResult] = useState<Record<string, unknown> | null>(null);
+  const [result, setResult] = useState<MagicUploadFields | null>(null);
   const [fileKey, setFileKey] = useState(0);
 
   async function onSubmit(e: React.FormEvent<HTMLFormElement>) {
@@ -397,7 +404,13 @@ export function MagicUploadForm() {
         return;
       }
 
-      setResult(body);
+      if ("raw" in body && typeof body.raw === "string") {
+        setError("Unexpected response from server.");
+        setState("error");
+        return;
+      }
+
+      setResult(normalizeMagicUploadResponse(body));
       setState("success");
     } catch {
       setError("Network error. Please try again.");
@@ -413,6 +426,7 @@ export function MagicUploadForm() {
   }
 
   const showForm = state === "idle" || state === "uploading" || state === "error";
+  const rawResult = result as unknown as Record<string, unknown> | null;
 
   const extracted =
     result && isEventFields(result) && hasKnownFields(result) ? (result as EventFields) : null;
@@ -474,38 +488,34 @@ export function MagicUploadForm() {
 
       {state === "success" && result ? (
         <div className="space-y-4">
-          {isWorkflowStartedOnly(result) ? (
+          {rawResult && isWorkflowStartedOnly(rawResult) ? (
             <div className="rounded-lg border border-amber-500/30 bg-amber-500/10 px-4 py-3">
               <p className="text-sm font-medium text-amber-100">n8n responded too early</p>
               <p className="mt-2 text-sm text-amber-100/90">
                 The webhook returned &quot;Workflow was started&quot; instead of the extracted event
                 fields. In your n8n <strong>Webhook</strong> node, set{" "}
-                <strong>Respond</strong> to <strong>When Last Node Finishes</strong> (not
-                Immediately), and make sure the last node outputs JSON with eventTitle, date, time,
-                venue, agenda, organizerName, and eventType.
+                <strong>Respond</strong> to <strong>When Last Node Finishes</strong>.
               </p>
             </div>
           ) : null}
-          {isMockApiResponse(result) ? (
+          {rawResult && isMockApiResponse(rawResult) ? (
             <div className="rounded-lg border border-amber-500/30 bg-amber-500/10 px-4 py-3">
               <p className="text-sm font-medium text-amber-100">n8n returned a mock API message</p>
-              <p className="text-sm text-amber-100/90 mt-2">
-                Your workflow is hitting a test endpoint (e.g. Beeceptor) instead of returning the
-                OpenAI event fields. Remove or bypass that HTTP Request node and set the Webhook to
-                respond with the output of your JavaScript / OpenAI node.
+              <p className="mt-2 text-sm text-amber-100/90">
+                Your workflow is hitting a test endpoint instead of returning the OpenAI event fields.
               </p>
             </div>
           ) : null}
-          {extracted ? (
-            <EventResultCard data={extracted} />
-          ) : !isWorkflowStartedOnly(result) && !isMockApiResponse(result) ? (
+          {hasMagicUploadFields(result) ? (
+            <EventResultCard data={result} />
+          ) : rawResult && !isWorkflowStartedOnly(rawResult) && !isMockApiResponse(rawResult) ? (
             <Card className="border-white/10 bg-white/5">
               <CardHeader className="pb-2">
                 <CardTitle className="text-base text-white">Response</CardTitle>
               </CardHeader>
               <CardContent>
                 <pre className="overflow-x-auto rounded-md bg-black/30 p-3 text-xs text-muted-foreground">
-                  {JSON.stringify(result, null, 2)}
+                  {JSON.stringify(rawResult, null, 2)}
                 </pre>
               </CardContent>
             </Card>
