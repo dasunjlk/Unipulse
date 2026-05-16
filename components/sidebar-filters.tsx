@@ -4,13 +4,14 @@ import Link from "next/link";
 import { Flame, Clock, Tag, DollarSign } from "lucide-react";
 import { Checkbox } from "@/components/ui/checkbox";
 
-/** Must stay in sync with category ids used in filtering (`inferEventCategory` labels, lowercased). */
+/** Ids match `inferEventCategory` outputs lowercased (incl. `Campus` when no keywords match). */
 export const SIDEBAR_CATEGORIES = [
   { id: "tech", label: "Tech" },
   { id: "music", label: "Music" },
   { id: "sports", label: "Sports" },
   { id: "workshops", label: "Workshops" },
   { id: "career", label: "Career" },
+  { id: "campus", label: "Campus" },
 ] as const;
 
 const filters = [
