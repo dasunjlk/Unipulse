@@ -8,6 +8,7 @@
     "start": "next start",
     "lint": "next lint",
     "db:reset": "supabase db reset",
+    "db:push:cloud": "node scripts/cloud-supabase-push.cjs",
     "gen:types": "supabase gen types typescript --local --schema public > lib/db/database.types.ts"
   },
   "dependencies": {

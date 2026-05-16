@@ -1,15 +1,13 @@
 import Link from "next/link";
 import type { ReactNode } from "react";
-import { createClient } from "@/lib/supabase/server";
-import {
-  ProposalUploadForm,
-  PublishEventButton,
-  ExportManifestButton,
-} from "@/app/components/scaffold-actions";
+import { ProposalUploadForm } from "@/app/components/scaffold-actions";
+import type { OrganizerEventRowSerialized } from "@/app/components/organizer-events-panel";
+import { OrganizerEventsPanel } from "@/app/components/organizer-events-panel";
 import { MagicUploadForm } from "@/components/magic-upload-form";
 import { SiteFooter } from "@/components/site-footer";
 import { SiteHeader } from "@/components/site-header";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { createClient } from "@/lib/supabase/server";
 import { Activity, DollarSign, Ticket, TrendingUp } from "lucide-react";
 
 export default async function OrganizerDashboardPage() {
@@ -72,21 +70,71 @@ export default async function OrganizerDashboardPage() {
     );
   }
 
+  const { data: appCfg } = await supabase.from("app_config").select("grid_n").eq("id", 1).single();
+  const gridN = appCfg?.grid_n ?? 10;
+
   const { data: myEvents } = await supabase
     .from("events")
-    .select("id,title,is_draft,is_open_event,created_at")
+    .select(
+      "id,title,description,is_draft,is_open_event,created_at,start_at,end_at,venue,ticket_capacity,grid_row,grid_col,location_id,locations(code,name,grid_row,grid_col)",
+    )
     .eq("organizer_id", user.id)
     .order("created_at", { ascending: false });
-
   const eventIds = (myEvents ?? []).map((e) => e.id);
+
   let registrationTotal = 0;
+  const regCounts: Record<string, number> = {};
   if (eventIds.length > 0) {
     const { count } = await supabase
       .from("registrations")
       .select("*", { count: "exact", head: true })
       .in("event_id", eventIds);
     registrationTotal = count ?? 0;
+
+    const { data: regRows } = await supabase
+      .from("registrations")
+      .select("event_id")
+      .in("event_id", eventIds);
+    for (const r of regRows ?? []) {
+      const evId = r.event_id;
+      regCounts[evId] = (regCounts[evId] ?? 0) + 1;
+    }
   }
+
+  const rows: OrganizerEventRowSerialized[] =
+    myEvents?.map((e) => {
+      const nested = (
+        e as unknown as {
+          locations?: {
+            code: string;
+            name: string;
+            grid_row: number;
+            grid_col: number;
+          } | null;
+        }
+      ).locations;
+
+      const locNested =
+        nested && typeof nested === "object" && !Array.isArray(nested) ? nested : null;
+
+      return {
+        id: e.id,
+        title: e.title,
+        description: e.description ?? "",
+        is_draft: e.is_draft,
+        is_open_event: e.is_open_event,
+        start_at: e.start_at,
+        end_at: e.end_at,
+        venue: e.venue,
+        location_id: e.location_id as string,
+        location_code: locNested?.code ?? null,
+        location_name: locNested?.name ?? null,
+        grid_row: e.grid_row,
+        grid_col: e.grid_col,
+        ticket_capacity: e.ticket_capacity,
+        registrationCount: regCounts[e.id] ?? 0,
+      };
+    }) ?? [];
 
   const totalEvents = myEvents?.length ?? 0;
   const publishedEvents = (myEvents ?? []).filter((e) => !e.is_draft).length;
@@ -155,39 +203,11 @@ export default async function OrganizerDashboardPage() {
           </Card>
 
           <Card className="border-white/10 bg-card/50 backdrop-blur-xl">
-            <CardHeader>
+            <CardHeader className="flex flex-row flex-wrap items-start justify-between gap-4 space-y-0">
               <CardTitle className="text-white">My events</CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
-              {(myEvents ?? []).length === 0 ? (
-                <p className="text-sm text-muted-foreground">No events yet.</p>
-              ) : (
-                <ul className="space-y-4">
-                  {(myEvents ?? []).map((e) => (
-                    <li
-                      key={e.id}
-                      className="flex flex-col gap-3 rounded-xl border border-white/10 bg-white/5 p-4 md:flex-row md:items-center md:justify-between"
-                    >
-                      <div>
-                        <Link
-                          href={`/events/${e.id}`}
-                          className="font-medium text-white hover:text-purple-300"
-                        >
-                          {e.title || e.id}
-                        </Link>
-                        <p className="text-xs text-muted-foreground">
-                          {e.is_open_event ? "Open / upvotes" : "Closed registration"} · Draft:{" "}
-                          {String(e.is_draft)}
-                        </p>
-                      </div>
-                      <div className="flex flex-wrap gap-2">
-                        <PublishEventButton eventId={e.id} />
-                        <ExportManifestButton eventId={e.id} />
-                      </div>
-                    </li>
-                  ))}
-                </ul>
-              )}
+              <OrganizerEventsPanel events={rows} gridN={gridN} />
             </CardContent>
           </Card>
 

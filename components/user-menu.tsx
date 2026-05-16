@@ -115,12 +115,20 @@ export function UserMenu({ fullName, universityId, clubName, role, pulseMetrics 
           >
             Campus Map
           </Link>
+          {role === "student" ? (
+            <Link
+              href="/dashboard/student"
+              className="rounded-md px-3 py-2 text-sm text-muted-foreground transition-colors hover:bg-white/5 hover:text-white"
+            >
+              Student dashboard
+            </Link>
+          ) : null}
           {role === "organizer" ? (
             <Link
               href="/dashboard/organizer"
               className="rounded-md px-3 py-2 text-sm text-muted-foreground transition-colors hover:bg-white/5 hover:text-white"
             >
-              Merch
+              My events
             </Link>
           ) : null}
           <Button

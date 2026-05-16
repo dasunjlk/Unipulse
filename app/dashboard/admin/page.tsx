@@ -1,6 +1,8 @@
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
+import { AdminEventsPanel } from "@/app/components/admin-events-panel";
 import { AdminOrganizersPanel, GridConfigForm } from "@/app/components/admin-panel";
+import { LocationsAdminPanel } from "@/app/components/locations-admin-panel";
 import { LogoutButton } from "@/app/components/scaffold-actions";
 import { SiteFooter } from "@/components/site-footer";
 import { SiteHeader } from "@/components/site-header";
@@ -24,7 +26,7 @@ import {
   Bell,
   CalendarDays,
   LayoutDashboard,
-  Map,
+  Map as MapIcon,
   PieChart,
   Search,
   Settings,
@@ -37,7 +39,7 @@ const navItems = [
   { href: "#dashboard-overview", label: "Dashboard", icon: LayoutDashboard },
   { href: "#organizer-requests", label: "Organizer Requests", icon: Users },
   { href: "#events-management", label: "Events Management", icon: CalendarDays },
-  { href: "#campus-map", label: "Campus Map Controls", icon: Map },
+  { href: "#campus-map", label: "Campus Map Controls", icon: MapIcon },
   { href: "#user-management", label: "User Management", icon: UserCog },
   { href: "#reports", label: "Reports", icon: FileBarChart },
   { href: "#analytics", label: "Analytics", icon: BarChart3 },
@@ -83,49 +85,6 @@ const mockOrganizers = [
   },
 ] as const;
 
-const mockEvents = [
-  {
-    tier: "Free",
-    title: "AI Workshop 2024",
-    org: "Tech Club",
-    date: "Jan 20",
-    attendees: "245 attendees",
-    revenue: null as string | null,
-  },
-  {
-    tier: "Premium",
-    title: "Premium Music Festival",
-    org: "Music Society",
-    date: "Jan 25",
-    attendees: "1200 attendees",
-    revenue: "$12,000 revenue",
-  },
-  {
-    tier: "Free",
-    title: "Hackathon Spring",
-    org: "CS Department",
-    date: "Feb 1",
-    attendees: "500 attendees",
-    revenue: null,
-  },
-  {
-    tier: "Premium",
-    title: "VIP Career Fair",
-    org: "Career Center",
-    date: "Feb 5",
-    attendees: "800 attendees",
-    revenue: "$8,500 revenue",
-  },
-  {
-    tier: "Free",
-    title: "Art Exhibition",
-    org: "Art Club",
-    date: "Feb 10",
-    attendees: "150 attendees",
-    revenue: null,
-  },
-] as const;
-
 const mockUsers = [
   {
     user: "John Doe",
@@ -167,15 +126,6 @@ const mockUsers = [
     activity: "Last active 5h ago",
     initials: "CB",
   },
-] as const;
-
-const campusBlocks = [
-  { id: "A1", label: "Main Hall", events: 5 },
-  { id: "A2", label: "Science Building", events: 3 },
-  { id: "B1", label: "Library", events: 2 },
-  { id: "B2", label: "Sports Complex", events: 8 },
-  { id: "C1", label: "Arts Center", events: 4 },
-  { id: "C2", label: "Student Union", events: 12 },
 ] as const;
 
 const approvalTrend = [
@@ -301,6 +251,56 @@ export default async function AdminDashboardPage() {
     day: "numeric",
     year: "numeric",
   }).format(new Date());
+
+  const { data: eventsRows } = await supabase
+    .from("events")
+    .select("id,title,start_at,venue,is_draft,is_pinned,organizer_id")
+    .order("created_at", { ascending: false });
+
+  const organizerIds = Array.from(
+    new Set((eventsRows ?? []).map((e) => e.organizer_id)),
+  );
+  const profilesById = new Map<string, { full_name: string; club_name: string | null }>();
+  if (organizerIds.length > 0) {
+    const { data: profRows } = await supabase
+      .from("profiles")
+      .select("id,full_name,club_name")
+      .in("id", organizerIds);
+    for (const p of profRows ?? []) {
+      profilesById.set(p.id, { full_name: p.full_name, club_name: p.club_name });
+    }
+  }
+
+  const evIdsList = (eventsRows ?? []).map((e) => e.id);
+  const registrationCountByEvent: Record<string, number> = {};
+  if (evIdsList.length > 0) {
+    const { data: regRows } = await supabase
+      .from("registrations")
+      .select("event_id")
+      .in("event_id", evIdsList);
+    for (const r of regRows ?? []) {
+      registrationCountByEvent[r.event_id] = (registrationCountByEvent[r.event_id] ?? 0) + 1;
+    }
+  }
+
+  const { data: appCfgRow } = await supabase.from("app_config").select("grid_n").eq("id", 1).single();
+  const gridNConfigured = appCfgRow?.grid_n ?? 10;
+
+  const adminEventRows =
+    eventsRows?.map((e) => {
+      const prof = profilesById.get(e.organizer_id);
+      return {
+        id: e.id,
+        title: e.title ?? "",
+        organizerName: prof?.full_name ?? "Organizer",
+        organizerClub: prof?.club_name ?? null,
+        start_at: e.start_at,
+        venue: e.venue,
+        is_draft: e.is_draft,
+        is_pinned: e.is_pinned,
+        registration_count: registrationCountByEvent[e.id] ?? 0,
+      };
+    }) ?? [];
 
   return (
     <div className="flex min-h-screen bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-purple-950/40 via-background to-background">
@@ -525,42 +525,13 @@ export default async function AdminDashboardPage() {
 
           {/* Events */}
           <section id="events-management">
-            <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
+            <div className="mb-4">
               <h2 className="text-lg font-semibold text-white">Event Management</h2>
-              <Button
-                type="button"
-                className="border-0 bg-gradient-to-r from-purple-600 to-blue-600 text-white"
-              >
-                Add Event
-              </Button>
+              <p className="text-sm text-muted-foreground">
+                Organizers publish events; you can hide or feature them for the campus feed.
+              </p>
             </div>
-            <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
-              {mockEvents.map((ev) => (
-                <Card key={ev.title} className="border-white/10 bg-card/50">
-                  <CardHeader className="pb-2">
-                    <div className="flex items-start justify-between gap-2">
-                      <Badge
-                        variant="outline"
-                        className={
-                          ev.tier === "Premium"
-                            ? "border-purple-400/40 text-purple-200"
-                            : "border-white/20 text-muted-foreground"
-                        }
-                      >
-                        {ev.tier}
-                      </Badge>
-                    </div>
-                    <CardTitle className="text-base text-white">{ev.title}</CardTitle>
-                  </CardHeader>
-                  <CardContent className="space-y-1 text-sm text-muted-foreground">
-                    <p>{ev.org}</p>
-                    <p>{ev.date}</p>
-                    <p>{ev.attendees}</p>
-                    {ev.revenue ? <p className="text-purple-200">{ev.revenue}</p> : null}
-                  </CardContent>
-                </Card>
-              ))}
-            </div>
+            <AdminEventsPanel rows={adminEventRows} />
           </section>
 
           {/* Campus map */}
@@ -568,69 +539,13 @@ export default async function AdminDashboardPage() {
             <div className="mb-4 space-y-1">
               <h2 className="text-lg font-semibold text-white">Campus Map Controls</h2>
               <p className="text-sm text-muted-foreground">
-                Adjust grid dimensions and coordinate labels — wired to your admin config API.
+                Define labeled grid cells organizers can attach events to — grid size persists in app config.
               </p>
             </div>
-            <div className="grid gap-6 lg:grid-cols-2">
-              <Card className="border-white/10 bg-card/50">
-                <CardHeader>
-                  <CardTitle className="text-white">Campus Preview</CardTitle>
-                  <p className="text-xs text-muted-foreground">
-                    Sample heat counts per block — illustrative only.
-                  </p>
-                </CardHeader>
-                <CardContent>
-                  <div className="grid grid-cols-3 gap-2 rounded-xl border border-white/10 bg-black/20 p-4">
-                    {[
-                      [5, 3, 2],
-                      [8, 4, 12],
-                      [null, null, null],
-                    ].flatMap((row, ri) =>
-                      row.map((cell, ci) =>
-                        cell != null ? (
-                          <div
-                            key={`${ri}-${ci}`}
-                            className="flex aspect-square items-center justify-center rounded-lg bg-purple-600/25 text-lg font-semibold text-white"
-                          >
-                            {cell}
-                          </div>
-                        ) : (
-                          <div key={`${ri}-${ci}`} className="aspect-square rounded-lg bg-white/5" />
-                        ),
-                      ),
-                    )}
-                  </div>
-                </CardContent>
-              </Card>
+            <div className="mb-6 max-w-xl">
               <GridConfigForm />
             </div>
-            <Card className="mt-6 border-white/10 bg-card/50">
-              <CardHeader>
-                <CardTitle className="text-white">Edit Campus Blocks</CardTitle>
-              </CardHeader>
-              <CardContent className="overflow-x-auto">
-                <Table>
-                  <TableHeader>
-                    <TableRow className="border-white/10 hover:bg-transparent">
-                      <TableHead>Block</TableHead>
-                      <TableHead>Label</TableHead>
-                      <TableHead className="text-right">Events</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {campusBlocks.map((b) => (
-                      <TableRow key={b.id} className="border-white/10">
-                        <TableCell className="font-mono text-purple-200">{b.id}</TableCell>
-                        <TableCell className="text-white">{b.label}</TableCell>
-                        <TableCell className="text-right text-muted-foreground">
-                          {b.events} events
-                        </TableCell>
-                      </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
-              </CardContent>
-            </Card>
+            <LocationsAdminPanel gridN={gridNConfigured} />
           </section>
 
           {/* Users */}
