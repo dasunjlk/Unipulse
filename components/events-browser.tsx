@@ -3,8 +3,7 @@
 import { useMemo } from "react";
 import { CampusMap, type CampusMapEvent, type CampusMapLocation } from "@/components/campus-map";
 import { EventsSection, type HomeEventCard } from "@/components/events-section";
-import { SidebarFilters, SIDEBAR_CATEGORIES } from "@/components/sidebar-filters";
-import { inferEventCategory } from "@/lib/event-display";
+import { SidebarFilters, type FilterCategoryOption } from "@/components/sidebar-filters";
 
 export type EventsBrowserRow = HomeEventCard & CampusMapEvent;
 
@@ -13,35 +12,38 @@ type EventsBrowserProps = {
   locations: CampusMapLocation[];
   events: EventsBrowserRow[];
   mapBackgroundUrl?: string | null;
+  filterCategories: FilterCategoryOption[];
   selectedCategories: string[];
   onToggleCategory: (id: string) => void;
   searchQuery?: string;
 };
-
-const SIDEBAR_IDS = new Set<string>(SIDEBAR_CATEGORIES.map((c) => c.id));
 
 export function EventsBrowser({
   gridN,
   locations,
   events,
   mapBackgroundUrl,
+  filterCategories,
   selectedCategories,
   onToggleCategory,
   searchQuery,
 }: EventsBrowserProps) {
+  const slugSet = useMemo(() => new Set(filterCategories.map((c) => c.id)), [filterCategories]);
+
   const categoryCounts = useMemo(() => {
     const counts: Record<string, number> = {};
-    for (const c of SIDEBAR_CATEGORIES) {
+    for (const c of filterCategories) {
       counts[c.id] = 0;
     }
     for (const e of events) {
-      const raw = inferEventCategory(e.title, e.description).toLowerCase();
-      if (SIDEBAR_IDS.has(raw)) {
-        counts[raw]++;
+      for (const cat of e.categories) {
+        if (slugSet.has(cat.slug)) {
+          counts[cat.slug] = (counts[cat.slug] ?? 0) + 1;
+        }
       }
     }
     return counts;
-  }, [events]);
+  }, [events, filterCategories, slugSet]);
 
   const filteredEvents = useMemo(() => {
     const q = (searchQuery ?? "").trim().toLowerCase();
@@ -54,14 +56,15 @@ export function EventsBrowser({
       if (selectedSet.size === 0) {
         return true;
       }
-      const cat = inferEventCategory(e.title, e.description).toLowerCase();
-      return selectedSet.has(cat);
+      const eventSlugs = new Set(e.categories.map((c) => c.slug.toLowerCase()));
+      return Array.from(selectedSet).some((sel) => eventSlugs.has(sel));
     });
   }, [events, selectedCategories, searchQuery]);
 
   return (
     <div className="flex flex-col gap-8 lg:flex-row">
       <SidebarFilters
+        filterCategories={filterCategories}
         selectedCategories={selectedCategories}
         onToggleCategory={onToggleCategory}
         categoryCounts={categoryCounts}

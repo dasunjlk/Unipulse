@@ -18,6 +18,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
 import { inferEventCategory } from "@/lib/event-display";
 import { isWearable, merchTypeLabel, parseMerchItems } from "@/lib/merch";
+import { EVENT_CATEGORY_LINKS_SELECT, flattenLinkedCategories } from "@/lib/event-categories";
 
 type PageProps = { params: { id: string } };
 
@@ -25,7 +26,7 @@ export default async function EventDetailPage({ params }: PageProps) {
   const supabase = createClient();
   const { data: event, error } = await supabase
     .from("events")
-    .select("*, locations(code,name,grid_row,grid_col)")
+    .select(`*, locations(code,name,grid_row,grid_col), ${EVENT_CATEGORY_LINKS_SELECT}`)
     .eq("id", params.id)
     .single();
 
@@ -66,7 +67,9 @@ export default async function EventDetailPage({ params }: PageProps) {
   } = await supabase.auth.getUser();
 
   const isOwner = user?.id === event.organizer_id;
-  const category = inferEventCategory(event.title, event.description);
+  const categories = flattenLinkedCategories(
+    event as unknown as Parameters<typeof flattenLinkedCategories>[0],
+  );
 
   const locNestedRaw = (
     event as unknown as {
@@ -104,13 +107,21 @@ export default async function EventDetailPage({ params }: PageProps) {
             >
               ← Back to events
             </Link>
-            <div className="flex flex-wrap items-center gap-3">
+            <div className="flex flex-wrap items-center gap-2">
               <Badge className="border-0 bg-emerald-500/20 text-emerald-200">
                 {event.is_open_event ? "Free Entry" : "Registration"}
               </Badge>
-              <Badge variant="secondary" className="border-0 bg-white/10">
-                {category}
-              </Badge>
+              {categories.length === 0 ? (
+                <Badge variant="secondary" className="border-0 bg-white/10">
+                  Campus
+                </Badge>
+              ) : (
+                categories.map((c) => (
+                  <Badge key={c.id} variant="secondary" className="border-0 bg-white/10">
+                    {c.label}
+                  </Badge>
+                ))
+              )}
             </div>
             <h1 className="mt-4 text-3xl font-bold text-white md:text-4xl">
               {event.title || "(untitled)"}

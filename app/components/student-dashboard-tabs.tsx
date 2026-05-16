@@ -20,6 +20,7 @@ import {
   inferEventCategory,
 } from "@/lib/event-display";
 import { MERCH_ITEM_TYPES, merchTypeLabel, type MerchItemType } from "@/lib/merch";
+import { categoryGradient, formatEventDateTime } from "@/lib/event-display";
 
 export type StudentMyEventCard = HomeEventCard & {
   registeredAt: string;
@@ -37,6 +38,12 @@ export type StudentMerchPurchaseRow = {
   size: string | null;
   purchase_date: string;
 };
+function cardGradient(event: Pick<HomeEventCard, "categories">): string {
+  const g = event.categories[0]?.gradient;
+  if (g) return g;
+  const label = event.categories[0]?.label ?? "";
+  return categoryGradient(label || "Campus");
+}
 
 export function StudentDashboardTabs({
   allEvents,
@@ -162,8 +169,7 @@ export function StudentDashboardTabs({
 }
 
 function RegisteredEventCard({ event }: { event: StudentMyEventCard }) {
-  const category = inferEventCategory(event.title, event.description);
-  const gradient = categoryGradient(category);
+  const gradient = cardGradient(event);
   const { date, time } = formatEventDateTime(event.start_at);
   const registered = new Date(event.registeredAt);
   const registeredStr = Number.isNaN(registered.getTime())
@@ -188,6 +194,19 @@ function RegisteredEventCard({ event }: { event: StudentMyEventCard }) {
             {event.title || "Untitled event"}
           </h3>
         </Link>
+        {event.categories.length > 0 ? (
+          <div className="flex flex-wrap gap-1">
+            {event.categories.map((c) => (
+              <Badge
+                key={c.id}
+                variant="outline"
+                className="border-white/20 text-xs text-muted-foreground"
+              >
+                {c.label}
+              </Badge>
+            ))}
+          </div>
+        ) : null}
         <p className="text-xs text-muted-foreground">Registered at: {registeredStr}</p>
         <div className="space-y-2 text-sm text-muted-foreground">
           <div className="flex items-center gap-2">

@@ -4,12 +4,14 @@ import { useCallback, useState } from "react";
 import type { CampusMapLocation } from "@/components/campus-map";
 import { EventsBrowser, type EventsBrowserRow } from "@/components/events-browser";
 import { HeroSection } from "@/components/hero-section";
+import type { FilterCategoryOption } from "@/components/sidebar-filters";
 
 type HomeDiscoveryRootProps = {
   gridN: number;
   locations: CampusMapLocation[];
   events: EventsBrowserRow[];
   mapBackgroundUrl?: string | null;
+  filterCategories: FilterCategoryOption[];
 };
 
 export function HomeDiscoveryRoot({
@@ -17,6 +19,7 @@ export function HomeDiscoveryRoot({
   locations,
   events,
   mapBackgroundUrl,
+  filterCategories,
 }: HomeDiscoveryRootProps) {
   const [selectedCategories, setSelectedCategories] = useState<string[]>([]);
   const [searchQuery, setSearchQuery] = useState("");
@@ -30,6 +33,7 @@ export function HomeDiscoveryRoot({
   return (
     <>
       <HeroSection
+        filterCategories={filterCategories}
         selectedCategories={selectedCategories}
         onToggleCategory={toggleCategory}
         searchQuery={searchQuery}
@@ -41,6 +45,7 @@ export function HomeDiscoveryRoot({
           locations={locations}
           events={events}
           mapBackgroundUrl={mapBackgroundUrl ?? null}
+          filterCategories={filterCategories}
           selectedCategories={selectedCategories}
           onToggleCategory={toggleCategory}
           searchQuery={searchQuery}
