@@ -19,6 +19,7 @@ export function HomeDiscoveryRoot({
   mapBackgroundUrl,
 }: HomeDiscoveryRootProps) {
   const [selectedCategories, setSelectedCategories] = useState<string[]>([]);
+  const [searchQuery, setSearchQuery] = useState("");
 
   const toggleCategory = useCallback((id: string) => {
     setSelectedCategories((prev) =>
@@ -31,6 +32,8 @@ export function HomeDiscoveryRoot({
       <HeroSection
         selectedCategories={selectedCategories}
         onToggleCategory={toggleCategory}
+        searchQuery={searchQuery}
+        onSearchQueryChange={setSearchQuery}
       />
       <div className="container mx-auto px-4 py-12">
         <EventsBrowser
@@ -40,6 +43,7 @@ export function HomeDiscoveryRoot({
           mapBackgroundUrl={mapBackgroundUrl ?? null}
           selectedCategories={selectedCategories}
           onToggleCategory={toggleCategory}
+          searchQuery={searchQuery}
         />
       </div>
     </>

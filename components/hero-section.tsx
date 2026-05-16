@@ -7,11 +7,15 @@ import { Input } from "@/components/ui/input";
 export type HeroSectionProps = {
   selectedCategories?: string[];
   onToggleCategory?: (id: string) => void;
+  searchQuery?: string;
+  onSearchQueryChange?: (value: string) => void;
 };
 
 export function HeroSection({
   selectedCategories = [],
   onToggleCategory,
+  searchQuery = "",
+  onSearchQueryChange,
 }: HeroSectionProps) {
   return (
     <section className="relative overflow-hidden py-20 lg:py-32">
@@ -34,14 +38,28 @@ export function HeroSection({
           {/* Search bar */}
           <div className="relative mx-auto mt-10 max-w-xl">
             <div className="absolute inset-0 rounded-2xl bg-gradient-to-r from-purple-500/20 to-blue-500/20 blur-xl" />
-            <div className="relative flex items-center rounded-2xl border border-white/10 bg-card/80 backdrop-blur-xl">
-              <Search className="ml-4 h-5 w-5 text-muted-foreground" />
-              <Input
-                type="text"
-                placeholder="Search events, workshops, meetups..."
-                className="flex-1 border-0 bg-transparent text-base placeholder:text-muted-foreground focus-visible:ring-0 focus-visible:ring-offset-0"
-              />
-            </div>
+            <form
+              className="relative"
+              role="search"
+              aria-label="Search events"
+              onSubmit={(e) => {
+                e.preventDefault();
+              }}
+            >
+              <div className="relative flex items-center rounded-2xl border border-white/10 bg-card/80 backdrop-blur-xl">
+                <Search className="ml-4 h-5 w-5 text-muted-foreground" aria-hidden />
+                <Input
+                  type="search"
+                  placeholder="Search events, workshops, meetups..."
+                  className="flex-1 border-0 bg-transparent text-base placeholder:text-muted-foreground focus-visible:ring-0 focus-visible:ring-offset-0"
+                  value={searchQuery ?? ""}
+                  onChange={(e) => {
+                    onSearchQueryChange?.(e.target.value);
+                  }}
+                  name="event-search"
+                />
+              </div>
+            </form>
           </div>
 
           {/* Category pills — same IDs as sidebar for shared filtering */}

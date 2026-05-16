@@ -15,6 +15,7 @@ type EventsBrowserProps = {
   mapBackgroundUrl?: string | null;
   selectedCategories: string[];
   onToggleCategory: (id: string) => void;
+  searchQuery?: string;
 };
 
 const SIDEBAR_IDS = new Set<string>(SIDEBAR_CATEGORIES.map((c) => c.id));
@@ -26,6 +27,7 @@ export function EventsBrowser({
   mapBackgroundUrl,
   selectedCategories,
   onToggleCategory,
+  searchQuery,
 }: EventsBrowserProps) {
   const categoryCounts = useMemo(() => {
     const counts: Record<string, number> = {};
@@ -42,15 +44,20 @@ export function EventsBrowser({
   }, [events]);
 
   const filteredEvents = useMemo(() => {
-    if (selectedCategories.length === 0) {
-      return events;
-    }
+    const q = (searchQuery ?? "").trim().toLowerCase();
     const selectedSet = new Set(selectedCategories.map((id) => id.toLowerCase()));
     return events.filter((e) => {
+      const matchesTitle = q === "" || (e.title ?? "").toLowerCase().includes(q);
+      if (!matchesTitle) {
+        return false;
+      }
+      if (selectedSet.size === 0) {
+        return true;
+      }
       const cat = inferEventCategory(e.title, e.description).toLowerCase();
       return selectedSet.has(cat);
     });
-  }, [events, selectedCategories]);
+  }, [events, selectedCategories, searchQuery]);
 
   return (
     <div className="flex flex-col gap-8 lg:flex-row">
