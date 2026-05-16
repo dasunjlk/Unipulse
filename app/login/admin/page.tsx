@@ -40,14 +40,15 @@ export default function AdminLoginPage() {
 
             <Card className="mt-8 max-w-md border-white/10 bg-card/50 backdrop-blur-xl">
               <CardContent className="p-6 pt-6">
-                <div className="[&_div:has(#club_display)]:hidden">
-                  <EmailLoginForm
-                    submitLabel="Secure Admin Access"
-                    showForgot
-                    redirectTo="/dashboard/admin"
-                    showHint={false}
-                  />
-                </div>
+                <EmailLoginForm
+                  submitLabel="Secure Admin Access"
+                  showForgot
+                  redirectTo="/dashboard/admin"
+                  showHint={false}
+                  emailLabel="Username"
+                  emailPlaceholder="admin@unipulse.edu"
+                  hideClub={true}
+                />
               </CardContent>
             </Card>
 

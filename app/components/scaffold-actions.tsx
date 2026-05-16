@@ -239,11 +239,17 @@ export function EmailLoginForm({
   showForgot = true,
   redirectTo = "/dashboard/organizer",
   showHint = false,
+  emailLabel = "Organizer Email",
+  emailPlaceholder = "organizer@club.edu",
+  hideClub = false,
 }: {
   submitLabel?: string;
   showForgot?: boolean;
   redirectTo?: string;
   showHint?: boolean;
+  emailLabel?: string;
+  emailPlaceholder?: string;
+  hideClub?: boolean;
 } = {}) {
   const [msg, setMsg] = useState<string | null>(null);
 
@@ -279,13 +285,13 @@ export function EmailLoginForm({
         </div>
       ) : null}
       <div className="space-y-2">
-        <Label htmlFor="email-login">Organizer Email</Label>
+        <Label htmlFor="email-login">{emailLabel}</Label>
         <Input
           id="email-login"
           name="email"
           type="email"
           required
-          placeholder="organizer@club.edu"
+          placeholder={emailPlaceholder}
           autoComplete="email"
         />
       </div>
@@ -300,11 +306,13 @@ export function EmailLoginForm({
           autoComplete="current-password"
         />
       </div>
-      <div className="space-y-2">
-        <Label htmlFor="club_display">Organization / Club Name</Label>
-        <Input id="club_display" name="club_display" placeholder="e.g., Tech Society" />
-        <p className="text-xs text-muted-foreground">Shown for your reference; not sent to login.</p>
-      </div>
+      {!hideClub && (
+        <div className="space-y-2">
+          <Label htmlFor="club_display">Organization / Club Name</Label>
+          <Input id="club_display" name="club_display" placeholder="e.g., Tech Society" />
+          <p className="text-xs text-muted-foreground">Shown for your reference; not sent to login.</p>
+        </div>
+      )}
       <div className="flex items-center justify-between text-sm">
         <label className="flex items-center gap-2 text-muted-foreground">
           <input type="checkbox" className="rounded border-white/20 bg-transparent" />
