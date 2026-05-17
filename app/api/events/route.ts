@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { requireApprovedOrganizer } from "@/lib/auth/guards";
-import { triggerWebhook } from "@/lib/n8n";
+import { buildEventPublishedPayload, triggerWebhook } from "@/lib/n8n";
 import type { Database, Json } from "@/lib/db/database.types";
 import { jsonError } from "@/lib/http/json-error";
 import { EVENT_CATEGORY_LINKS_SELECT } from "@/lib/event-categories";
@@ -97,11 +97,14 @@ export async function POST(request: Request) {
     const out = withCats ?? data;
 
     if (!data.is_draft) {
-      void triggerWebhook("event-published", {
-        event_id: out.id,
-        title: out.title,
-        organizer_id: out.organizer_id,
-      });
+      void triggerWebhook(
+        "event-published",
+        await buildEventPublishedPayload(supabase, {
+          id: out.id,
+          title: out.title,
+          organizer_id: out.organizer_id,
+        }),
+      );
     }
 
     if (reloadErr) {

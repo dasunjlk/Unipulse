@@ -1,4 +1,5 @@
 import crypto from "crypto";
+import type { SupabaseClient } from "@supabase/supabase-js";
 
 /**
  * Outbound n8n webhooks (Next.js → n8n).
@@ -65,4 +66,26 @@ export async function triggerWebhook(
   } catch (e) {
     console.warn(`[n8n] ${name} failed (non-fatal)`, e);
   }
+}
+
+export async function buildEventPublishedPayload(
+  supabase: SupabaseClient,
+  event: { id: string; title: string; organizer_id: string },
+): Promise<Record<string, unknown>> {
+  const { data: profile } = await supabase
+    .from("profiles")
+    .select("full_name, whatsapp_number, whatsapp_consent")
+    .eq("id", event.organizer_id)
+    .single();
+
+  return {
+    event_id: event.id,
+    title: event.title,
+    organizer_id: event.organizer_id,
+    organizer_full_name: profile?.full_name ?? null,
+    organizer_whatsapp:
+      profile?.whatsapp_consent && profile?.whatsapp_number
+        ? profile.whatsapp_number
+        : null,
+  };
 }

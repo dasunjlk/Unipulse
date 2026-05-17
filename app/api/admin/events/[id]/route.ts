@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { requireAdmin } from "@/lib/auth/guards";
 import { jsonError } from "@/lib/http/json-error";
-import { triggerWebhook } from "@/lib/n8n";
+import { buildEventPublishedPayload, triggerWebhook } from "@/lib/n8n";
 import { createClient } from "@/lib/supabase/server";
 
 type Ctx = { params: { id: string } };
@@ -43,11 +43,14 @@ export async function PATCH(request: Request, context: Ctx) {
     }
 
     if (existing.is_draft && !data.is_draft) {
-      void triggerWebhook("event-published", {
-        event_id: data.id,
-        title: data.title,
-        organizer_id: data.organizer_id,
-      });
+      void triggerWebhook(
+        "event-published",
+        await buildEventPublishedPayload(supabase, {
+          id: data.id,
+          title: data.title,
+          organizer_id: data.organizer_id,
+        }),
+      );
     }
 
     return NextResponse.json({ event: data });
