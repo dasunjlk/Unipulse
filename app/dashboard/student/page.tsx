@@ -11,7 +11,7 @@ import { storedWhatsappToDisplay } from "@/lib/auth/phone";
 import { EVENT_CATEGORY_LINKS_SELECT, flattenLinkedCategories } from "@/lib/event-categories";
 
 function eventSelectFields() {
-  return `id,title,description,start_at,venue,upvote_count,is_open_event,is_pinned,is_draft,grid_row,grid_col,${EVENT_CATEGORY_LINKS_SELECT}` as const;
+  return `id,title,description,start_at,venue,upvote_count,is_open_event,cover_image_url,is_pinned,is_draft,grid_row,grid_col,${EVENT_CATEGORY_LINKS_SELECT}` as const;
 }
 
 type StudentEventRow = {
@@ -25,6 +25,7 @@ type StudentEventRow = {
   is_draft?: boolean | null;
   grid_row?: number | null;
   grid_col?: number | null;
+  cover_image_url?: string | null;
 };
 
 function rowsToCards(rows: StudentEventRow[]): HomeEventCard[] {
@@ -36,6 +37,7 @@ function rowsToCards(rows: StudentEventRow[]): HomeEventCard[] {
     venue: e.venue,
     upvote_count: e.upvote_count ?? 0,
     is_open_event: Boolean(e.is_open_event),
+    cover_image_url: (e.cover_image_url as string | null) ?? null,
     categories: flattenLinkedCategories(
       e as unknown as Parameters<typeof flattenLinkedCategories>[0],
     ),
@@ -86,7 +88,7 @@ export default async function StudentDashboardPage() {
 
   const fields = eventSelectFields();
 
-  const [{ data: cfg }, { data: locRows }, { data: allRows }] = await Promise.all([
+  const [cfgResult, locResult, studentEventsResult] = await Promise.all([
     supabase.from("app_config").select("grid_n, map_background_url").eq("id", 1).single(),
     supabase
       .from("locations")
@@ -100,6 +102,13 @@ export default async function StudentDashboardPage() {
       .order("is_pinned", { ascending: false })
       .order("start_at", { ascending: true, nullsFirst: false }),
   ]);
+
+  const { data: cfg } = cfgResult;
+  const { data: locRows } = locResult;
+  const { data: allRows, error: studentAllEventsError } = studentEventsResult;
+  if (studentAllEventsError) {
+    console.error("student dashboard events query failed", studentAllEventsError);
+  }
 
   const allEvents = rowsToCards((allRows ?? []) as StudentEventRow[]);
 
@@ -151,6 +160,7 @@ export default async function StudentDashboardPage() {
           venue: ev.venue,
           upvote_count: ev.upvote_count ?? 0,
           is_open_event: Boolean(ev.is_open_event),
+          cover_image_url: (ev as { cover_image_url?: string | null }).cover_image_url ?? null,
           registeredAt,
           categories: flattenLinkedCategories(
             ev as unknown as Parameters<typeof flattenLinkedCategories>[0],

@@ -174,6 +174,15 @@ function RegisteredEventCard({ event }: { event: StudentMyEventCard }) {
   return (
     <div className="group relative overflow-hidden rounded-2xl border border-white/10 bg-card/50 transition-all duration-300 hover:border-purple-500/30 hover:shadow-lg">
       <div className={`relative h-24 overflow-hidden bg-gradient-to-br ${gradient}`}>
+        {event.cover_image_url ? (
+          <Image
+            src={event.cover_image_url}
+            alt=""
+            fill
+            sizes="(min-width: 1024px) 33vw, (min-width: 640px) 50vw, 100vw"
+            className="object-cover"
+          />
+        ) : null}
         <div className="absolute inset-0 bg-black/20" />
         <div className="absolute inset-0 bg-gradient-to-t from-card/80 to-transparent" />
         <Badge

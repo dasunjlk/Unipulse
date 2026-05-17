@@ -64,6 +64,7 @@ export async function PATCH(request: Request, context: Ctx) {
     if (body.description !== undefined) patch.description = body.description;
     if (body.proposal_file_url !== undefined)
       patch.proposal_file_url = body.proposal_file_url;
+    if (body.cover_image_url !== undefined) patch.cover_image_url = body.cover_image_url;
     if (body.start_at !== undefined) patch.start_at = body.start_at;
     if (body.end_at !== undefined) patch.end_at = body.end_at;
     if (body.venue !== undefined) patch.venue = body.venue;

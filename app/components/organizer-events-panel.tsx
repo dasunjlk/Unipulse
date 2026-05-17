@@ -41,6 +41,7 @@ export type OrganizerEventRowSerialized = {
   registrationCount: number;
   merchItems: MerchItem[];
   category_ids: string[];
+  cover_image_url: string | null;
 };
 
 async function parseJson(res: Response) {
@@ -81,6 +82,7 @@ export function OrganizerEventsPanel({
         ticket_capacity: editingRow.ticket_capacity,
         is_draft: editingRow.is_draft,
         category_ids: editingRow.category_ids,
+        cover_image_url: editingRow.cover_image_url ?? null,
       }
     : null;
 

@@ -76,13 +76,16 @@ export default async function OrganizerDashboardPage() {
   const { data: appCfg } = await supabase.from("app_config").select("grid_n").eq("id", 1).single();
   const gridN = appCfg?.grid_n ?? 10;
 
-  const { data: myEvents } = await supabase
+  const { data: myEvents, error: organizerEventsError } = await supabase
     .from("events")
     .select(
-      `id,title,description,is_draft,is_open_event,created_at,start_at,end_at,venue,ticket_capacity,grid_row,grid_col,location_id,merch_items,locations(code,name,grid_row,grid_col),${EVENT_CATEGORY_LINKS_SELECT}`,
+      `id,title,description,is_draft,is_open_event,created_at,start_at,end_at,venue,ticket_capacity,grid_row,grid_col,location_id,cover_image_url,merch_items,locations(code,name,grid_row,grid_col),${EVENT_CATEGORY_LINKS_SELECT}`,
     )
     .eq("organizer_id", user.id)
     .order("created_at", { ascending: false });
+  if (organizerEventsError) {
+    console.error("organizer dashboard events query failed", organizerEventsError);
+  }
   const eventIds = (myEvents ?? []).map((e) => e.id);
 
   let registrationTotal = 0;
@@ -140,6 +143,7 @@ export default async function OrganizerDashboardPage() {
         category_ids: flattenLinkedCategories(
           e as unknown as Parameters<typeof flattenLinkedCategories>[0],
         ).map((c) => c.id),
+        cover_image_url: (e.cover_image_url as string | null) ?? null,
       };
     }) ?? [];
 

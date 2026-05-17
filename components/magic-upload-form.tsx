@@ -1,5 +1,6 @@
 "use client";
 
+import Image from "next/image";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
@@ -112,6 +113,9 @@ function ConfirmCreateEventPanel({
   const [categoriesErr, setCategoriesErr] = useState<string | null>(null);
   const [selectedCategoryIds, setSelectedCategoryIds] = useState<string[]>([]);
   const catsInitRef = useRef(false);
+  const [coverImageUrl, setCoverImageUrl] = useState<string | null>(null);
+  const [uploadingCover, setUploadingCover] = useState(false);
+  const [coverUploadErr, setCoverUploadErr] = useState<string | null>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -207,6 +211,39 @@ function ConfirmCreateEventPanel({
     );
   }
 
+  async function onCoverFileChange(ev: React.ChangeEvent<HTMLInputElement>) {
+    const file = ev.target.files?.[0];
+    ev.target.value = "";
+    if (!file) return;
+
+    setCoverUploadErr(null);
+    setUploadingCover(true);
+    try {
+      const fd = new FormData();
+      fd.append("file", file);
+      const res = await fetch("/api/event-cover/upload", {
+        method: "POST",
+        credentials: "include",
+        body: fd,
+      });
+      const body = await parseJson(res);
+      if (!res.ok) {
+        setCoverUploadErr(String(body.error ?? res.statusText ?? res.status));
+        return;
+      }
+      const url = body.cover_image_url;
+      if (typeof url !== "string" || !url) {
+        setCoverUploadErr("Invalid upload response.");
+        return;
+      }
+      setCoverImageUrl(url);
+    } catch {
+      setCoverUploadErr("Upload failed. Please try again.");
+    } finally {
+      setUploadingCover(false);
+    }
+  }
+
   async function handleConfirmCreate() {
     setSubmitErr(null);
     const cleanTitle = title.trim();
@@ -241,6 +278,7 @@ function ConfirmCreateEventPanel({
           ticket_capacity: 0,
           is_draft: !publishNow,
           category_ids: selectedCategoryIds,
+          cover_image_url: coverImageUrl,
         }),
       });
       const body = await parseJson(res);
@@ -400,6 +438,51 @@ function ConfirmCreateEventPanel({
           )}
         </div>
 
+        <div className="space-y-2 rounded-lg border border-white/10 bg-white/5 p-3">
+          <Label htmlFor="magic-cover-photo">Cover photo (optional)</Label>
+          <p className="text-xs text-muted-foreground">
+            Shown on event cards and the event page banner. JPG, PNG, WebP — max 5MB.
+          </p>
+          <Input
+            id="magic-cover-photo"
+            type="file"
+            accept="image/*"
+            disabled={uploadingCover}
+            onChange={(event) => void onCoverFileChange(event)}
+            className="cursor-pointer"
+          />
+          {uploadingCover ? (
+            <p className="text-xs text-muted-foreground">Uploading…</p>
+          ) : null}
+          {coverUploadErr ? <p className="text-xs text-destructive">{coverUploadErr}</p> : null}
+          {coverImageUrl ? (
+            <div className="relative mt-2 overflow-hidden rounded-md border border-white/10">
+              <div className="relative aspect-[16/9] w-full max-w-sm">
+                <Image
+                  src={coverImageUrl}
+                  alt="Event cover preview"
+                  fill
+                  className="object-cover"
+                  sizes="320px"
+                />
+              </div>
+              <div className="p-2">
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={() => {
+                    setCoverImageUrl(null);
+                    setCoverUploadErr(null);
+                  }}
+                >
+                  Remove cover
+                </Button>
+              </div>
+            </div>
+          ) : null}
+        </div>
+
         <div className="flex items-center justify-between gap-4 rounded-lg border border-white/10 bg-white/5 p-4">
           <div>
             <p className="text-sm font-medium text-white">Publish immediately</p>
@@ -417,6 +500,7 @@ function ConfirmCreateEventPanel({
             !locationId.trim() ||
             selectedCategoryIds.length === 0 ||
             submitting ||
+            uploadingCover ||
             !!loadErr ||
             locations.length === 0 ||
             !!categoriesErr ||

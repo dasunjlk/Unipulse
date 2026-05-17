@@ -99,6 +99,19 @@ export default async function EventDetailPage({ params }: PageProps) {
     <div className="flex min-h-screen flex-col">
       <SiteHeader />
       <main className="flex-1">
+        {event.cover_image_url ? (
+          <div className="relative h-56 w-full overflow-hidden md:h-80">
+            <Image
+              src={event.cover_image_url}
+              alt={event.title || "Event cover"}
+              fill
+              priority
+              sizes="100vw"
+              className="object-cover"
+            />
+            <div className="absolute inset-0 bg-gradient-to-t from-background to-transparent" />
+          </div>
+        ) : null}
         <div className="border-b border-white/10 bg-card/30">
           <div className="container mx-auto px-4 py-6">
             <Link

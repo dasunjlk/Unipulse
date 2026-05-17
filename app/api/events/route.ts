@@ -57,6 +57,7 @@ export async function POST(request: Request) {
       title: body.title ?? "",
       description: body.description ?? "",
       proposal_file_url: body.proposal_file_url ?? null,
+      cover_image_url: body.cover_image_url ?? null,
       start_at: body.start_at ?? null,
       end_at: body.end_at ?? null,
       venue: body.venue ?? null,

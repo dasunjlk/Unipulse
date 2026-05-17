@@ -14,7 +14,7 @@ export default async function HomePage() {
     .single();
   const gridN = cfg?.grid_n ?? 10;
 
-  const [{ data: catRows }, { data: locRows }, { data: events }] = await Promise.all([
+  const [catRowsRes, locRowsRes, eventsRes] = await Promise.all([
     supabase
       .from("event_categories")
       .select("slug,label,sort_order")
@@ -28,12 +28,19 @@ export default async function HomePage() {
     supabase
       .from("events")
       .select(
-        `id,title,description,start_at,venue,upvote_count,is_open_event,grid_row,grid_col,is_pinned,${EVENT_CATEGORY_LINKS_SELECT}`,
+        `id,title,description,start_at,venue,upvote_count,is_open_event,cover_image_url,grid_row,grid_col,is_pinned,${EVENT_CATEGORY_LINKS_SELECT}`,
       )
       .eq("is_draft", false)
       .order("is_pinned", { ascending: false })
       .order("start_at", { ascending: true, nullsFirst: false }),
   ]);
+
+  const { data: catRows } = catRowsRes;
+  const { data: locRows } = locRowsRes;
+  const { data: events, error: eventsError } = eventsRes;
+  if (eventsError) {
+    console.error("home events query failed", eventsError);
+  }
 
   const filterCategories =
     (catRows ?? []).map((c) => ({
@@ -52,6 +59,7 @@ export default async function HomePage() {
       is_open_event: boolean | null;
       grid_row: number | null;
       grid_col: number | null;
+      cover_image_url: string | null;
     };
     return {
       id: e.id,
@@ -63,6 +71,7 @@ export default async function HomePage() {
       is_open_event: Boolean(e.is_open_event),
       grid_row: Number(e.grid_row ?? 0),
       grid_col: Number(e.grid_col ?? 0),
+      cover_image_url: (e.cover_image_url as string | null) ?? null,
       categories: flattenLinkedCategories(raw as Parameters<typeof flattenLinkedCategories>[0]),
     };
   });

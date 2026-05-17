@@ -85,6 +85,7 @@ export interface Database {
           title: string;
           description: string;
           proposal_file_url: string | null;
+          cover_image_url: string | null;
           start_at: string | null;
           end_at: string | null;
           venue: string | null;
@@ -106,6 +107,7 @@ export interface Database {
           title?: string;
           description?: string;
           proposal_file_url?: string | null;
+          cover_image_url?: string | null;
           start_at?: string | null;
           end_at?: string | null;
           venue?: string | null;
@@ -125,6 +127,7 @@ export interface Database {
           title?: string;
           description?: string;
           proposal_file_url?: string | null;
+          cover_image_url?: string | null;
           start_at?: string | null;
           end_at?: string | null;
           venue?: string | null;
