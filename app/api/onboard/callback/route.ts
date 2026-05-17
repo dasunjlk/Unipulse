@@ -79,6 +79,19 @@ export async function POST(request: Request) {
       );
     }
 
+    const { data: campusCat } = await admin
+      .from("event_categories")
+      .select("id")
+      .eq("slug", "campus")
+      .maybeSingle();
+
+    if (campusCat?.id) {
+      await admin.from("event_category_links").insert({
+        event_id: data.id,
+        category_id: campusCat.id,
+      });
+    }
+
     return NextResponse.json({ event: data });
   } catch (e) {
     return jsonError(e);

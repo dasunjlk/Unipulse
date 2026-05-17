@@ -21,6 +21,8 @@ export interface Database {
           role: UserRole;
           account_status: AccountStatus;
           manual_interests: string[];
+          whatsapp_number: string | null;
+          whatsapp_consent: boolean;
           created_at: string;
         };
         Insert: {
@@ -31,6 +33,8 @@ export interface Database {
           role?: UserRole;
           account_status?: AccountStatus;
           manual_interests?: string[];
+          whatsapp_number?: string | null;
+          whatsapp_consent?: boolean;
           created_at?: string;
         };
         Update: {
@@ -40,6 +44,8 @@ export interface Database {
           role?: UserRole;
           account_status?: AccountStatus;
           manual_interests?: string[];
+          whatsapp_number?: string | null;
+          whatsapp_consent?: boolean;
         };
         Relationships: [];
       };
@@ -79,6 +85,7 @@ export interface Database {
           title: string;
           description: string;
           proposal_file_url: string | null;
+          cover_image_url: string | null;
           start_at: string | null;
           end_at: string | null;
           venue: string | null;
@@ -100,6 +107,7 @@ export interface Database {
           title?: string;
           description?: string;
           proposal_file_url?: string | null;
+          cover_image_url?: string | null;
           start_at?: string | null;
           end_at?: string | null;
           venue?: string | null;
@@ -119,6 +127,7 @@ export interface Database {
           title?: string;
           description?: string;
           proposal_file_url?: string | null;
+          cover_image_url?: string | null;
           start_at?: string | null;
           end_at?: string | null;
           venue?: string | null;
@@ -131,6 +140,49 @@ export interface Database {
           merch_items?: Json;
           is_draft?: boolean;
           social_caption_staging?: string | null;
+        };
+        Relationships: [];
+      };
+      event_categories: {
+        Row: {
+          id: string;
+          slug: string;
+          label: string;
+          gradient: string;
+          sort_order: number;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          slug: string;
+          label: string;
+          gradient?: string;
+          sort_order?: number;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          slug?: string;
+          label?: string;
+          gradient?: string;
+          sort_order?: number;
+          updated_at?: string;
+        };
+        Relationships: [];
+      };
+      event_category_links: {
+        Row: {
+          event_id: string;
+          category_id: string;
+        };
+        Insert: {
+          event_id: string;
+          category_id: string;
+        };
+        Update: {
+          event_id?: string;
+          category_id?: string;
         };
         Relationships: [];
       };
@@ -163,6 +215,11 @@ export interface Database {
           price: string;
           quantity: number;
           purchase_date: string;
+          size: string | null;
+          buyer_full_name: string;
+          buyer_university_id: string | null;
+          item_type: string | null;
+          item_image_url: string | null;
         };
         Insert: {
           id?: string;
@@ -173,9 +230,19 @@ export interface Database {
           price: string | number;
           quantity?: number;
           purchase_date?: string;
+          size?: string | null;
+          buyer_full_name?: string;
+          buyer_university_id?: string | null;
+          item_type?: string | null;
+          item_image_url?: string | null;
         };
         Update: {
           quantity?: number;
+          size?: string | null;
+          buyer_full_name?: string;
+          buyer_university_id?: string | null;
+          item_type?: string | null;
+          item_image_url?: string | null;
         };
         Relationships: [];
       };
@@ -215,6 +282,7 @@ export interface Database {
           p_event_id: string;
           p_item_id: string;
           p_quantity?: number;
+          p_size?: string | null;
         };
         Returns: Json;
       };

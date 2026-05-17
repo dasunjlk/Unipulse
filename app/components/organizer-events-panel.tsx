@@ -20,6 +20,8 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog";
 import { formatEventDateTime } from "@/lib/event-display";
+import type { MerchItem } from "@/lib/merch";
+import { MerchManagerDialog } from "@/app/components/merch-manager-dialog";
 
 export type OrganizerEventRowSerialized = {
   id: string;
@@ -37,6 +39,9 @@ export type OrganizerEventRowSerialized = {
   grid_col: number;
   ticket_capacity: number;
   registrationCount: number;
+  merchItems: MerchItem[];
+  category_ids: string[];
+  cover_image_url: string | null;
 };
 
 async function parseJson(res: Response) {
@@ -76,6 +81,8 @@ export function OrganizerEventsPanel({
         is_open_event: editingRow.is_open_event,
         ticket_capacity: editingRow.ticket_capacity,
         is_draft: editingRow.is_draft,
+        category_ids: editingRow.category_ids,
+        cover_image_url: editingRow.cover_image_url ?? null,
       }
     : null;
 
@@ -211,6 +218,14 @@ export function OrganizerEventsPanel({
                     <UnpublishEventButton eventId={e.id} onSuccess={() => router.refresh()} />
                   )}
                   <ExportManifestButton eventId={e.id} />
+                  <Button type="button" variant="outline" size="sm" asChild>
+                    <Link href={`/dashboard/organizer/events/${e.id}/sales`}>View sales</Link>
+                  </Button>
+                  <MerchManagerDialog
+                    eventId={e.id}
+                    eventTitle={e.title || e.id}
+                    initialItems={e.merchItems}
+                  />
                 </div>
               </li>
             );

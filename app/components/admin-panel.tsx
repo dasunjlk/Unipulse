@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -131,6 +132,7 @@ export function AdminOrganizersPanel() {
 }
 
 export function GridConfigForm() {
+  const router = useRouter();
   const [gridN, setGridN] = useState(10);
   const [msg, setMsg] = useState<string | null>(null);
 
@@ -157,7 +159,20 @@ export function GridConfigForm() {
       body: JSON.stringify({ grid_n: gridN }),
     });
     const body = await parseJson(res);
-    setMsg(res.ok ? `Saved grid_n=${gridN}` : String(body.error ?? res.status));
+    if (!res.ok) {
+      setMsg(String(body.error ?? res.status));
+      return;
+    }
+    if (body.config && typeof body.config === "object") {
+      const c = body.config as { grid_n?: number };
+      if (typeof c.grid_n === "number") {
+        setGridN(c.grid_n);
+        setMsg(`Saved grid_n=${c.grid_n}`);
+        router.refresh();
+        return;
+      }
+    }
+    setMsg("Save returned no grid_n; please reload.");
   }
 
   return (
@@ -166,7 +181,7 @@ export function GridConfigForm() {
         <CardTitle className="text-white">Campus grid size</CardTitle>
       </CardHeader>
       <CardContent>
-        <form onSubmit={save} className="flex flex-wrap items-end gap-4">
+        <form onSubmit={(ev) => void save(ev)} className="flex flex-wrap items-end gap-4">
           <div className="space-y-2">
             <Label htmlFor="grid_n">n (grid is n×n)</Label>
             <Input

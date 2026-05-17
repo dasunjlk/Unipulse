@@ -1,7 +1,6 @@
 "use client";
 
 import Link from "next/link";
-import { useRouter } from "next/navigation";
 import { Store, User } from "lucide-react";
 import { HoverCard, HoverCardContent, HoverCardTrigger } from "@/components/ui/hover-card";
 import { Button } from "@/components/ui/button";
@@ -21,19 +20,9 @@ export type UserMenuProps = {
   pulseMetrics?: UserPulseMetrics | null;
 };
 
-async function logoutAndRefresh() {
-  await fetch("/api/auth/logout", {
-    method: "POST",
-    credentials: "include",
-  });
-}
-
 export function UserMenu({ fullName, universityId, clubName, role, pulseMetrics }: UserMenuProps) {
-  const router = useRouter();
-
-  async function handleLogout() {
-    await logoutAndRefresh();
-    router.push("/");
+  function handleLogout() {
+    window.location.assign("/api/auth/logout");
   }
 
   const title =
@@ -136,7 +125,7 @@ export function UserMenu({ fullName, universityId, clubName, role, pulseMetrics 
             variant="ghost"
             size="sm"
             className="justify-start text-muted-foreground hover:bg-white/5 hover:text-white"
-            onClick={() => void handleLogout()}
+            onClick={handleLogout}
           >
             Log out
           </Button>

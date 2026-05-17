@@ -3,8 +3,8 @@
 import { useEffect, useMemo, useState } from "react";
 
 import type { CampusMapLocation } from "@/components/campus-map";
+import { CampusMap } from "@/components/campus-map";
 import { Label } from "@/components/ui/label";
-import { cn } from "@/lib/utils";
 
 async function fetchLocationsJson(): Promise<CampusMapLocation[]> {
   const res = await fetch("/api/locations");
@@ -80,22 +80,8 @@ export function LocationPicker({ gridN, locationId, onLocationIdChange }: Locati
     );
   }, [locations, gridN]);
 
-  const locationsByCoord = useMemo(() => {
-    const map = new Map<string, CampusMapLocation>();
-    for (const loc of selectableLocations) {
-      map.set(`${loc.grid_row}-${loc.grid_col}`, loc);
-    }
-    return map;
-  }, [selectableLocations]);
-
-  const cells = gridN * gridN;
   const selected =
     selectableLocations.find((l) => l.id === locationId) ?? locations.find((l) => l.id === locationId);
-
-  const gridStyle = {
-    gridTemplateColumns: `repeat(${gridN}, minmax(0, 1fr))`,
-    gridTemplateRows: `repeat(${gridN}, minmax(0, 1fr))`,
-  } as const;
 
   return (
     <div className="space-y-3 sm:col-span-2">
@@ -118,45 +104,16 @@ export function LocationPicker({ gridN, locationId, onLocationIdChange }: Locati
             Click a labeled cell on the {gridN}×{gridN} campus grid to set the map pin for this event.
           </p>
 
-          <div
-            className="grid aspect-[5/4] max-h-[340px] w-full gap-1 rounded-xl border border-white/10 bg-black/40 p-2 sm:aspect-[16/11]"
-            style={gridStyle}
-          >
-            {Array.from({ length: cells }).map((_, i) => {
-              const row = Math.floor(i / gridN);
-              const col = i % gridN;
-              const loc = locationsByCoord.get(`${row}-${col}`);
-              const isSel = loc?.id === locationId;
-              if (!loc) {
-                return (
-                  <button
-                    key={i}
-                    type="button"
-                    disabled
-                    className="min-h-0 rounded border border-transparent bg-black/55 opacity-[0.25]"
-                  />
-                );
-              }
-              return (
-                <button
-                  key={i}
-                  type="button"
-                  onClick={() => {
-                    onLocationIdChange(loc.id);
-                  }}
-                  title={`${loc.code} · ${loc.name}`}
-                  className={cn(
-                    "relative flex flex-col justify-center rounded border px-1 py-1 text-center text-[10px] leading-[1.1] ring-offset-background transition-colors",
-                    isSel
-                      ? "border-purple-400 bg-purple-600/30 ring-2 ring-purple-400"
-                      : "border-purple-800/35 bg-purple-950/40 hover:bg-purple-900/50",
-                  )}
-                >
-                  <span className="truncate font-semibold uppercase text-purple-200">{loc.code}</span>
-                </button>
-              );
-            })}
-          </div>
+          <CampusMap
+            hideHeading
+            mode="pick-location"
+            gridN={gridN}
+            locations={selectableLocations}
+            events={[]}
+            showPins={false}
+            selectedLocationId={locationId}
+            onPickLocation={(loc) => onLocationIdChange(loc.id)}
+          />
 
           {selected && selectableLocations.some((l) => l.id === selected.id) ? (
             <p className="text-xs text-muted-foreground">

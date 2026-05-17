@@ -1,5 +1,6 @@
 "use client";
 
+import Image from "next/image";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
@@ -8,7 +9,6 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Spinner } from "@/components/ui/spinner";
-import { categoryGradient } from "@/lib/event-display";
 import {
   buildEventDescription,
   hasMagicUploadFields,
@@ -18,6 +18,7 @@ import {
 import { Switch } from "@/components/ui/switch";
 import { findClosestLocation, type LocationLite } from "@/lib/venue-match";
 import { cn } from "@/lib/utils";
+import { inferEventCategory } from "@/lib/event-display";
 
 const MAX_BYTES = 10 * 1024 * 1024;
 
@@ -106,6 +107,15 @@ function ConfirmCreateEventPanel({
   const [createdId, setCreatedId] = useState<string | null>(null);
   const [title, setTitle] = useState(String(data.eventTitle ?? "").trim());
   const initRef = useRef(false);
+  const [categoryOptions, setCategoryOptions] = useState<{ id: string; slug: string; label: string }[]>(
+    [],
+  );
+  const [categoriesErr, setCategoriesErr] = useState<string | null>(null);
+  const [selectedCategoryIds, setSelectedCategoryIds] = useState<string[]>([]);
+  const catsInitRef = useRef(false);
+  const [coverImageUrl, setCoverImageUrl] = useState<string | null>(null);
+  const [uploadingCover, setUploadingCover] = useState(false);
+  const [coverUploadErr, setCoverUploadErr] = useState<string | null>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -135,6 +145,57 @@ function ConfirmCreateEventPanel({
   }, []);
 
   useEffect(() => {
+    let cancelled = false;
+    void (async () => {
+      try {
+        const res = await fetch("/api/event-categories");
+        const body = (await res.json()) as {
+          categories?: { id: string; slug: string; label: string }[];
+          error?: string;
+        };
+        if (!res.ok || !body.categories) {
+          throw new Error(body.error ?? "Failed to load categories");
+        }
+        if (!cancelled) {
+          setCategoryOptions(body.categories);
+          setCategoriesErr(null);
+        }
+      } catch (e) {
+        if (!cancelled) {
+          setCategoriesErr(e instanceof Error ? e.message : "Could not load categories.");
+        }
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  useEffect(() => {
+    if (categoryOptions.length === 0 || catsInitRef.current) return;
+    catsInitRef.current = true;
+    const fromPdf = String(data.category ?? "").trim().toLowerCase();
+    const inferred = inferEventCategory(
+      String(data.eventTitle ?? ""),
+      buildEventDescription(data),
+    ).toLowerCase();
+    const hint = fromPdf || inferred;
+    const ids: string[] = [];
+    if (hint) {
+      const dashed = hint.replace(/\s+/g, "-");
+      const bySlug = categoryOptions.find((c) => c.slug === hint || c.slug === dashed);
+      const byLabel = categoryOptions.find((c) => c.label.toLowerCase() === hint);
+      const pick = bySlug ?? byLabel;
+      if (pick) ids.push(pick.id);
+    }
+    if (ids.length === 0) {
+      const campus = categoryOptions.find((c) => c.slug === "campus");
+      if (campus) ids.push(campus.id);
+    }
+    setSelectedCategoryIds(ids);
+  }, [categoryOptions, data]);
+
+  useEffect(() => {
     if (locations.length === 0 || initRef.current) return;
     initRef.current = true;
     const m = findClosestLocation(data.venue, locations);
@@ -143,6 +204,45 @@ function ConfirmCreateEventPanel({
       setAutoMatchedId(m.location.id);
     }
   }, [locations, data.venue]);
+
+  function toggleCategoryId(id: string) {
+    setSelectedCategoryIds((prev) =>
+      prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id],
+    );
+  }
+
+  async function onCoverFileChange(ev: React.ChangeEvent<HTMLInputElement>) {
+    const file = ev.target.files?.[0];
+    ev.target.value = "";
+    if (!file) return;
+
+    setCoverUploadErr(null);
+    setUploadingCover(true);
+    try {
+      const fd = new FormData();
+      fd.append("file", file);
+      const res = await fetch("/api/event-cover/upload", {
+        method: "POST",
+        credentials: "include",
+        body: fd,
+      });
+      const body = await parseJson(res);
+      if (!res.ok) {
+        setCoverUploadErr(String(body.error ?? res.statusText ?? res.status));
+        return;
+      }
+      const url = body.cover_image_url;
+      if (typeof url !== "string" || !url) {
+        setCoverUploadErr("Invalid upload response.");
+        return;
+      }
+      setCoverImageUrl(url);
+    } catch {
+      setCoverUploadErr("Upload failed. Please try again.");
+    } finally {
+      setUploadingCover(false);
+    }
+  }
 
   async function handleConfirmCreate() {
     setSubmitErr(null);
@@ -153,6 +253,10 @@ function ConfirmCreateEventPanel({
     }
     if (!locationId.trim()) {
       setSubmitErr("Select a campus location for the map pin.");
+      return;
+    }
+    if (selectedCategoryIds.length === 0) {
+      setSubmitErr("Select at least one category.");
       return;
     }
 
@@ -173,6 +277,8 @@ function ConfirmCreateEventPanel({
           is_open_event: true,
           ticket_capacity: 0,
           is_draft: !publishNow,
+          category_ids: selectedCategoryIds,
+          cover_image_url: coverImageUrl,
         }),
       });
       const body = await parseJson(res);
@@ -204,9 +310,6 @@ function ConfirmCreateEventPanel({
     { label: "Event type", value: data.eventType },
   ];
 
-  const categoryLabel = data.category ?? "";
-  const categoryGradientClass = categoryLabel ? categoryGradient(categoryLabel) : "";
-
   if (createdId) {
     return (
       <Card className="border-emerald-500/40 bg-emerald-500/10">
@@ -235,16 +338,7 @@ function ConfirmCreateEventPanel({
   return (
     <Card className="border-purple-500/30 bg-purple-500/5">
       <CardHeader className="pb-2">
-        <div className="flex flex-wrap items-center gap-3">
-          <CardTitle className="text-base text-purple-100">Create event from extraction</CardTitle>
-          {categoryLabel ? (
-            <span
-              className={`inline-block rounded-full bg-gradient-to-r px-3 py-1 text-xs font-medium text-white ${categoryGradientClass}`}
-            >
-              {categoryLabel}
-            </span>
-          ) : null}
-        </div>
+        <CardTitle className="text-base text-purple-100">Create event from extraction</CardTitle>
         <p className="text-xs text-muted-foreground">
           Confirm the campus map pin (auto-matched from venue when possible), then create the event.
         </p>
@@ -272,6 +366,39 @@ function ConfirmCreateEventPanel({
             if (label === "Agenda" && value === data.description) return null;
             return <FieldRow key={label} label={label} value={value} />;
           })}
+        </div>
+
+        <div className="space-y-2">
+          <Label>Categories</Label>
+          {categoriesErr ? (
+            <p className="text-xs text-destructive">{categoriesErr}</p>
+          ) : categoryOptions.length === 0 ? (
+            <p className="text-xs text-muted-foreground">Loading categories…</p>
+          ) : (
+            <div className="flex flex-wrap gap-2">
+              {categoryOptions.map((c) => {
+                const on = selectedCategoryIds.includes(c.id);
+                return (
+                  <button
+                    key={c.id}
+                    type="button"
+                    onClick={() => toggleCategoryId(c.id)}
+                    className={cn(
+                      "rounded-full border px-3 py-1.5 text-xs font-medium transition-colors",
+                      on
+                        ? "border-purple-500 bg-purple-500/20 text-white"
+                        : "border-white/15 bg-white/5 text-muted-foreground hover:border-white/25",
+                    )}
+                  >
+                    {c.label}
+                  </button>
+                );
+              })}
+            </div>
+          )}
+          <p className="text-xs text-muted-foreground">
+            Suggested from the PDF when possible — adjust before creating.
+          </p>
         </div>
 
         <div className="space-y-2">
@@ -311,6 +438,51 @@ function ConfirmCreateEventPanel({
           )}
         </div>
 
+        <div className="space-y-2 rounded-lg border border-white/10 bg-white/5 p-3">
+          <Label htmlFor="magic-cover-photo">Cover photo (optional)</Label>
+          <p className="text-xs text-muted-foreground">
+            Shown on event cards and the event page banner. JPG, PNG, WebP — max 5MB.
+          </p>
+          <Input
+            id="magic-cover-photo"
+            type="file"
+            accept="image/*"
+            disabled={uploadingCover}
+            onChange={(event) => void onCoverFileChange(event)}
+            className="cursor-pointer"
+          />
+          {uploadingCover ? (
+            <p className="text-xs text-muted-foreground">Uploading…</p>
+          ) : null}
+          {coverUploadErr ? <p className="text-xs text-destructive">{coverUploadErr}</p> : null}
+          {coverImageUrl ? (
+            <div className="relative mt-2 overflow-hidden rounded-md border border-white/10">
+              <div className="relative aspect-[16/9] w-full max-w-sm">
+                <Image
+                  src={coverImageUrl}
+                  alt="Event cover preview"
+                  fill
+                  className="object-cover"
+                  sizes="320px"
+                />
+              </div>
+              <div className="p-2">
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={() => {
+                    setCoverImageUrl(null);
+                    setCoverUploadErr(null);
+                  }}
+                >
+                  Remove cover
+                </Button>
+              </div>
+            </div>
+          ) : null}
+        </div>
+
         <div className="flex items-center justify-between gap-4 rounded-lg border border-white/10 bg-white/5 p-4">
           <div>
             <p className="text-sm font-medium text-white">Publish immediately</p>
@@ -326,9 +498,13 @@ function ConfirmCreateEventPanel({
           disabled={
             !title.trim() ||
             !locationId.trim() ||
+            selectedCategoryIds.length === 0 ||
             submitting ||
+            uploadingCover ||
             !!loadErr ||
-            locations.length === 0
+            locations.length === 0 ||
+            !!categoriesErr ||
+            categoryOptions.length === 0
           }
           className="w-full border-0 bg-gradient-to-r from-purple-600 to-blue-600 text-white"
           onClick={() => void handleConfirmCreate()}

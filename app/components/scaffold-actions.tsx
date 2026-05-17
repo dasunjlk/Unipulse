@@ -1,11 +1,31 @@
 "use client";
 
+import Image from "next/image";
 import { useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
+import { toast } from "sonner";
+import type { MerchItem, MerchSize } from "@/lib/merch";
+import { isWearable, merchTypeLabel } from "@/lib/merch";
 import { Button } from "@/components/ui/button";
+import {
+  Dialog,
+  DialogContent,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { cn } from "@/lib/utils";
 
 async function parseJson(res: Response) {
   const text = await res.text();
@@ -17,21 +37,8 @@ async function parseJson(res: Response) {
 }
 
 export function LogoutButton() {
-  const router = useRouter();
-  const [msg, setMsg] = useState<string | null>(null);
-
-  async function logout() {
-    setMsg(null);
-    const res = await fetch("/api/auth/logout", {
-      method: "POST",
-      credentials: "include",
-    });
-    const body = await parseJson(res);
-    if (res.ok) {
-      router.push("/");
-      return;
-    }
-    setMsg(String(body.error ?? res.status));
+  function logout() {
+    window.location.assign("/api/auth/logout");
   }
 
   return (
@@ -39,7 +46,6 @@ export function LogoutButton() {
       <Button type="button" variant="secondary" onClick={logout}>
         Log out
       </Button>
-      {msg ? <span className="text-sm text-muted-foreground">{msg}</span> : null}
     </div>
   );
 }
@@ -59,6 +65,8 @@ export function StudentSignupForm() {
         university_id: fd.get("university_id"),
         full_name: fd.get("full_name"),
         password: fd.get("password"),
+        whatsapp_number: String(fd.get("whatsapp_number") ?? "").trim() || undefined,
+        whatsapp_consent: fd.get("whatsapp_consent") === "on",
       }),
     });
     const body = await parseJson(res);
@@ -86,6 +94,29 @@ export function StudentSignupForm() {
           autoComplete="new-password"
         />
       </div>
+      <div className="space-y-2">
+        <Label htmlFor="whatsapp_student">WhatsApp number (optional)</Label>
+        <Input
+          id="whatsapp_student"
+          name="whatsapp_number"
+          type="tel"
+          inputMode="tel"
+          autoComplete="tel"
+          placeholder="e.g. 0715544320"
+        />
+        <p className="text-xs text-muted-foreground">
+          Sri Lankan mobile — stored as 94XXXXXXXXX for messaging later.
+        </p>
+      </div>
+      <label className="flex cursor-pointer items-start gap-2 text-sm text-muted-foreground">
+        <input
+          type="checkbox"
+          name="whatsapp_consent"
+          defaultChecked
+          className="mt-1 rounded border-white/20 bg-transparent"
+        />
+        <span>Notify me on WhatsApp about events (when we enable this).</span>
+      </label>
       <Button
         type="submit"
         className="w-full border-0 bg-gradient-to-r from-purple-600 to-blue-600 text-white"
@@ -113,6 +144,8 @@ export function OrganizerSignupForm() {
         full_name: fd.get("full_name"),
         club_name: fd.get("club_name"),
         password: fd.get("password"),
+        whatsapp_number: String(fd.get("whatsapp_number") ?? "").trim(),
+        whatsapp_consent: fd.get("whatsapp_consent") === "on",
       }),
     });
     const body = await parseJson(res);
@@ -133,6 +166,30 @@ export function OrganizerSignupForm() {
         <Label htmlFor="club_name">Club name</Label>
         <Input id="club_name" name="club_name" required />
       </div>
+      <div className="space-y-2">
+        <Label htmlFor="whatsapp_org">WhatsApp number</Label>
+        <Input
+          id="whatsapp_org"
+          name="whatsapp_number"
+          type="tel"
+          inputMode="tel"
+          autoComplete="tel"
+          required
+          placeholder="e.g. 0715544320"
+        />
+        <p className="text-xs text-muted-foreground">
+          Sri Lankan mobile — we&apos;ll message you when your events go live.
+        </p>
+      </div>
+      <label className="flex cursor-pointer items-start gap-2 text-sm text-muted-foreground">
+        <input
+          type="checkbox"
+          name="whatsapp_consent"
+          defaultChecked
+          className="mt-1 rounded border-white/20 bg-transparent"
+        />
+        <span>I agree to receive WhatsApp notifications about my organizer activity.</span>
+      </label>
       <div className="space-y-2">
         <Label htmlFor="password_org">Password</Label>
         <Input
@@ -183,7 +240,7 @@ export function StudentLoginForm() {
     const body = await parseJson(res);
     setMsg(res.ok ? "Welcome back — redirected soon." : String(body.error ?? res.status));
     if (res.ok) {
-      window.location.href = "/";
+      window.location.href = "/dashboard/student";
     }
   }
 
@@ -410,34 +467,146 @@ export function UnregisterButton({ eventId }: { eventId: string }) {
   );
 }
 
+const merchCheckoutFieldClass =
+  "border-zinc-400/50 bg-white text-zinc-950 caret-zinc-950 placeholder:text-zinc-500 shadow-sm dark:border-zinc-500/40 dark:bg-zinc-100 dark:text-zinc-950 dark:caret-zinc-950 dark:placeholder:text-zinc-600";
+
 export function MerchBuyButton({
   eventId,
-  itemId,
+  item,
 }: {
   eventId: string;
-  itemId: string;
+  item: MerchItem;
 }) {
-  const [msg, setMsg] = useState<string | null>(null);
+  const router = useRouter();
+  const [open, setOpen] = useState(false);
+  const [quantity, setQuantity] = useState(1);
+  const [size, setSize] = useState<MerchSize | "">("");
+  const [busy, setBusy] = useState(false);
 
-  async function go() {
-    setMsg(null);
-    const res = await fetch(`/api/events/${eventId}/merch/purchase`, {
-      method: "POST",
-      credentials: "include",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ item_id: itemId, quantity: 1 }),
-    });
-    const body = await parseJson(res);
-    setMsg(res.ok ? JSON.stringify(body.result) : String(body.error ?? res.status));
+  const needsSize = item.sizes.length > 0;
+  const canSubmit =
+    !busy && quantity >= 1 && (!needsSize || (size !== "" && item.sizes.includes(size)));
+
+  async function confirmPurchase() {
+    if (!canSubmit) return;
+    setBusy(true);
+    try {
+      const res = await fetch(`/api/events/${eventId}/merch/purchase`, {
+        method: "POST",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          item_id: item.id,
+          quantity,
+          size: needsSize ? size : null,
+        }),
+      });
+      const body = await parseJson(res);
+      const result = body.result as { ok?: boolean; error?: string } | undefined;
+      if (!res.ok || result?.ok === false) {
+        toast.error(String(body.error ?? result?.error ?? "Purchase failed"));
+        return;
+      }
+      toast.success(`Purchased ${quantity}× ${item.name}`);
+      setOpen(false);
+      setQuantity(1);
+      setSize("");
+      router.refresh();
+    } finally {
+      setBusy(false);
+    }
   }
 
   return (
-    <div className="flex flex-col gap-1">
-      <Button type="button" variant="secondary" onClick={go}>
-        Buy {itemId} (mock)
-      </Button>
-      {msg ? <span className="text-xs text-muted-foreground">{msg}</span> : null}
-    </div>
+    <Dialog
+      open={open}
+      onOpenChange={(v) => {
+        setOpen(v);
+        if (!v) {
+          setQuantity(1);
+          setSize("");
+        }
+      }}
+    >
+      <DialogTrigger asChild>
+        <Button type="button" variant="secondary" size="sm">
+          Buy
+        </Button>
+      </DialogTrigger>
+      <DialogContent className="border-white/10 bg-card sm:max-w-md">
+        <DialogHeader>
+          <DialogTitle className="text-foreground">Confirm purchase</DialogTitle>
+        </DialogHeader>
+        <div className="space-y-4 text-sm">
+          <div className="flex gap-3">
+            {item.image_url ? (
+              <div className="relative h-16 w-16 shrink-0 overflow-hidden rounded-md border border-white/10">
+                <Image
+                  src={item.image_url}
+                  alt=""
+                  fill
+                  className="object-cover"
+                  sizes="64px"
+                />
+              </div>
+            ) : null}
+            <p className="text-muted-foreground">
+              <span className="font-medium text-foreground">{item.name}</span> —{" "}
+              {merchTypeLabel(item.item_type)} · ${item.price.toFixed(2)} each
+            </p>
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor={`qty-${item.id}`} className="text-muted-foreground">
+              Quantity
+            </Label>
+            <Input
+              id={`qty-${item.id}`}
+              type="number"
+              min={1}
+              step={1}
+              value={quantity}
+              onChange={(e) => {
+                const n = Number(e.target.value);
+                setQuantity(Number.isFinite(n) && n >= 1 ? Math.floor(n) : 1);
+              }}
+              className={merchCheckoutFieldClass}
+            />
+          </div>
+          {needsSize ? (
+            <div className="space-y-2">
+              <Label className="text-muted-foreground">Size</Label>
+              <Select value={size || undefined} onValueChange={(v) => setSize(v as MerchSize)}>
+                <SelectTrigger className={cn("w-full", merchCheckoutFieldClass)}>
+                  <SelectValue placeholder="Choose size" />
+                </SelectTrigger>
+                <SelectContent className="border-zinc-300 bg-white text-zinc-950 dark:border-zinc-600 dark:bg-zinc-100 dark:text-zinc-950">
+                  {item.sizes.map((sz) => (
+                    <SelectItem key={sz} value={sz}>
+                      {sz}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          ) : isWearable(item.item_type) ? (
+            <p className="text-xs text-muted-foreground">One size / no size selection for this item.</p>
+          ) : null}
+        </div>
+        <DialogFooter className="gap-2 sm:gap-0">
+          <Button type="button" variant="secondary" onClick={() => setOpen(false)} disabled={busy}>
+            Cancel
+          </Button>
+          <Button
+            type="button"
+            className="border-0 bg-gradient-to-r from-purple-600 to-blue-600 text-white"
+            disabled={!canSubmit}
+            onClick={() => void confirmPurchase()}
+          >
+            {busy ? "Working…" : "Confirm"}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   );
 }
 

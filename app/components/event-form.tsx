@@ -1,5 +1,6 @@
 "use client";
 
+import Image from "next/image";
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
@@ -8,6 +9,7 @@ import { Label } from "@/components/ui/label";
 import { LocationPicker } from "@/app/components/location-picker";
 import { Switch } from "@/components/ui/switch";
 import { Textarea } from "@/components/ui/textarea";
+import { cn } from "@/lib/utils";
 
 export type EventFormInitial = {
   id?: string;
@@ -20,6 +22,14 @@ export type EventFormInitial = {
   is_open_event?: boolean;
   ticket_capacity?: number;
   is_draft?: boolean;
+  category_ids?: string[];
+  cover_image_url?: string | null;
+};
+
+type CategoryOption = {
+  id: string;
+  slug: string;
+  label: string;
 };
 
 function isoToDateTimeParts(iso: string | null | undefined): { date: string; time: string } {
@@ -72,20 +82,101 @@ export function EventForm({
   const [isOpenEvent, setIsOpenEvent] = useState(initial?.is_open_event !== false);
   const [isDraft, setIsDraft] = useState(initial?.is_draft === true);
   const [locationId, setLocationId] = useState(initial?.location_id ?? "");
+  const [categoryOptions, setCategoryOptions] = useState<CategoryOption[]>([]);
+  const [categoriesLoadErr, setCategoriesLoadErr] = useState<string | null>(null);
+  const [selectedCategoryIds, setSelectedCategoryIds] = useState<string[]>(
+    initial?.category_ids ?? [],
+  );
+  const [coverImageUrl, setCoverImageUrl] = useState<string | null>(
+    initial?.cover_image_url ?? null,
+  );
+  const [uploadingCover, setUploadingCover] = useState(false);
+  const [coverUploadErr, setCoverUploadErr] = useState<string | null>(null);
 
   useEffect(() => {
     setIsOpenEvent(initial?.is_open_event !== false);
     setIsDraft(initial?.is_draft === true);
     setLocationId(initial?.location_id ?? "");
+    setSelectedCategoryIds(initial?.category_ids ?? []);
+    setCoverImageUrl(initial?.cover_image_url ?? null);
+    setCoverUploadErr(null);
   }, [
     initial?.id,
     initial?.is_open_event,
     initial?.is_draft,
     initial?.location_id,
+    initial?.category_ids,
+    initial?.cover_image_url,
   ]);
+
+  useEffect(() => {
+    let cancelled = false;
+    void (async () => {
+      try {
+        const res = await fetch("/api/event-categories");
+        const body = (await res.json()) as {
+          categories?: { id: string; slug: string; label: string }[];
+          error?: string;
+        };
+        if (!res.ok || !body.categories) {
+          throw new Error(body.error ?? "Failed to load categories");
+        }
+        if (!cancelled) {
+          setCategoryOptions(body.categories);
+          setCategoriesLoadErr(null);
+        }
+      } catch (e) {
+        if (!cancelled) {
+          setCategoriesLoadErr(e instanceof Error ? e.message : "Could not load categories.");
+        }
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   const startParts = isoToDateTimeParts(initial?.start_at);
   const endParts = isoToDateTimeParts(initial?.end_at);
+
+  function toggleCategoryId(id: string) {
+    setSelectedCategoryIds((prev) =>
+      prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id],
+    );
+  }
+
+  async function onCoverFileChange(ev: React.ChangeEvent<HTMLInputElement>) {
+    const file = ev.target.files?.[0];
+    ev.target.value = "";
+    if (!file) return;
+
+    setCoverUploadErr(null);
+    setUploadingCover(true);
+    try {
+      const fd = new FormData();
+      fd.append("file", file);
+      const res = await fetch("/api/event-cover/upload", {
+        method: "POST",
+        credentials: "include",
+        body: fd,
+      });
+      const body = await parseJson(res);
+      if (!res.ok) {
+        setCoverUploadErr(String(body.error ?? res.statusText ?? res.status));
+        return;
+      }
+      const url = body.cover_image_url;
+      if (typeof url !== "string" || !url) {
+        setCoverUploadErr("Invalid upload response.");
+        return;
+      }
+      setCoverImageUrl(url);
+    } catch {
+      setCoverUploadErr("Upload failed. Please try again.");
+    } finally {
+      setUploadingCover(false);
+    }
+  }
 
   async function onSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -111,6 +202,11 @@ export function EventForm({
       return;
     }
 
+    if (selectedCategoryIds.length === 0) {
+      setMsg("Select at least one category.");
+      return;
+    }
+
     const payload = {
       title,
       description,
@@ -121,6 +217,8 @@ export function EventForm({
       is_open_event: isOpenEvent,
       ticket_capacity,
       is_draft: isDraft,
+      category_ids: selectedCategoryIds,
+      cover_image_url: coverImageUrl,
     };
 
     const url = mode === "create" ? "/api/events" : `/api/events/${initial?.id ?? ""}`;
@@ -159,6 +257,36 @@ export function EventForm({
             rows={4}
             required
           />
+        </div>
+        <div className="space-y-2 sm:col-span-2">
+          <Label>Categories</Label>
+          {categoriesLoadErr ? (
+            <p className="text-sm text-destructive">{categoriesLoadErr}</p>
+          ) : categoryOptions.length === 0 ? (
+            <p className="text-xs text-muted-foreground">Loading categories…</p>
+          ) : (
+            <div className="flex flex-wrap gap-2">
+              {categoryOptions.map((c) => {
+                const on = selectedCategoryIds.includes(c.id);
+                return (
+                  <button
+                    key={c.id}
+                    type="button"
+                    onClick={() => toggleCategoryId(c.id)}
+                    className={cn(
+                      "rounded-full border px-3 py-1.5 text-xs font-medium transition-colors",
+                      on
+                        ? "border-purple-500 bg-purple-500/20 text-white"
+                        : "border-white/15 bg-white/5 text-muted-foreground hover:border-white/25",
+                    )}
+                  >
+                    {c.label}
+                  </button>
+                );
+              })}
+            </div>
+          )}
+          <p className="text-xs text-muted-foreground">Choose one or more. Required.</p>
         </div>
         <div className="space-y-2">
           <Label htmlFor="start-date">Start date</Label>
@@ -218,6 +346,51 @@ export function EventForm({
           </div>
           <Switch checked={isDraft} onCheckedChange={setIsDraft} aria-label="Save as draft" />
         </div>
+      </div>
+
+      <div className="space-y-2 rounded-lg border border-white/10 bg-white/5 p-4">
+        <Label htmlFor="event-cover-photo">Cover photo (optional)</Label>
+        <p className="text-xs text-muted-foreground">
+          Shown on event cards and the event page banner. JPG, PNG, WebP — max 5MB.
+        </p>
+        <Input
+          id="event-cover-photo"
+          type="file"
+          accept="image/*"
+          disabled={uploadingCover}
+          onChange={(event) => void onCoverFileChange(event)}
+          className="cursor-pointer"
+        />
+        {uploadingCover ? (
+          <p className="text-xs text-muted-foreground">Uploading…</p>
+        ) : null}
+        {coverUploadErr ? <p className="text-xs text-destructive">{coverUploadErr}</p> : null}
+        {coverImageUrl ? (
+          <div className="relative mt-2 overflow-hidden rounded-md border border-white/10">
+            <div className="relative aspect-[16/9] w-full max-w-sm">
+              <Image
+                src={coverImageUrl}
+                alt="Event cover preview"
+                fill
+                className="object-cover"
+                sizes="320px"
+              />
+            </div>
+            <div className="p-2">
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={() => {
+                  setCoverImageUrl(null);
+                  setCoverUploadErr(null);
+                }}
+              >
+                Remove cover
+              </Button>
+            </div>
+          </div>
+        ) : null}
       </div>
 
       <Button type="submit" className="w-full border-0 bg-gradient-to-r from-purple-600 to-blue-600 text-white">

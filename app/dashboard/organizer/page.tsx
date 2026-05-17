@@ -2,11 +2,15 @@ import Link from "next/link";
 import type { ReactNode } from "react";
 import type { OrganizerEventRowSerialized } from "@/app/components/organizer-events-panel";
 import { OrganizerEventsPanel } from "@/app/components/organizer-events-panel";
+import { WhatsappSettingsCard } from "@/app/components/whatsapp-settings";
 import { MagicUploadForm } from "@/components/magic-upload-form";
 import { SiteFooter } from "@/components/site-footer";
 import { SiteHeader } from "@/components/site-header";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { createClient } from "@/lib/supabase/server";
+import { parseMerchItems } from "@/lib/merch";
+import { storedWhatsappToDisplay } from "@/lib/auth/phone";
+import { EVENT_CATEGORY_LINKS_SELECT, flattenLinkedCategories } from "@/lib/event-categories";
 import { Activity, DollarSign, Ticket, TrendingUp } from "lucide-react";
 
 export default async function OrganizerDashboardPage() {
@@ -72,13 +76,16 @@ export default async function OrganizerDashboardPage() {
   const { data: appCfg } = await supabase.from("app_config").select("grid_n").eq("id", 1).single();
   const gridN = appCfg?.grid_n ?? 10;
 
-  const { data: myEvents } = await supabase
+  const { data: myEvents, error: organizerEventsError } = await supabase
     .from("events")
     .select(
-      "id,title,description,is_draft,is_open_event,created_at,start_at,end_at,venue,ticket_capacity,grid_row,grid_col,location_id,locations(code,name,grid_row,grid_col)",
+      `id,title,description,is_draft,is_open_event,created_at,start_at,end_at,venue,ticket_capacity,grid_row,grid_col,location_id,cover_image_url,merch_items,locations(code,name,grid_row,grid_col),${EVENT_CATEGORY_LINKS_SELECT}`,
     )
     .eq("organizer_id", user.id)
     .order("created_at", { ascending: false });
+  if (organizerEventsError) {
+    console.error("organizer dashboard events query failed", organizerEventsError);
+  }
   const eventIds = (myEvents ?? []).map((e) => e.id);
 
   let registrationTotal = 0;
@@ -132,6 +139,11 @@ export default async function OrganizerDashboardPage() {
         grid_col: e.grid_col,
         ticket_capacity: e.ticket_capacity,
         registrationCount: regCounts[e.id] ?? 0,
+        merchItems: parseMerchItems(e.merch_items),
+        category_ids: flattenLinkedCategories(
+          e as unknown as Parameters<typeof flattenLinkedCategories>[0],
+        ).map((c) => c.id),
+        cover_image_url: (e.cover_image_url as string | null) ?? null,
       };
     }) ?? [];
 
@@ -147,13 +159,30 @@ export default async function OrganizerDashboardPage() {
             <div>
               <h1 className="text-3xl font-bold text-white">Organizer dashboard</h1>
               <p className="mt-1 text-muted-foreground">
-                Welcome back{profile.full_name ? `, ${profile.full_name}` : ""}
+                Welcome back
+                {profile.full_name ? `, ${profile.full_name}` : ""}
+                {profile.club_name ? ` — ${profile.club_name}` : ""}
               </p>
             </div>
           </div>
         </div>
 
         <div className="container mx-auto space-y-10 px-4 py-10">
+          {!profile.whatsapp_number ? (
+            <>
+              <div className="rounded-xl border border-amber-500/30 bg-amber-500/10 px-4 py-3 text-sm text-amber-100">
+                Add your WhatsApp number to get instant updates when your events are published.{" "}
+                <a href="#whatsapp-settings" className="font-medium text-amber-50 underline">
+                  Update WhatsApp settings
+                </a>
+              </div>
+              <WhatsappSettingsCard
+                initialDisplay={storedWhatsappToDisplay(profile.whatsapp_number)}
+                initialConsent={profile.whatsapp_consent}
+              />
+            </>
+          ) : null}
+
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
             <StatCard
               label="Total Events"

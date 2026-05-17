@@ -4,6 +4,8 @@ import { requireApprovedOrganizer } from "@/lib/auth/guards";
 import { triggerWebhook } from "@/lib/n8n";
 import type { Database, Json } from "@/lib/db/database.types";
 import { jsonError } from "@/lib/http/json-error";
+import { EVENT_CATEGORY_LINKS_SELECT } from "@/lib/event-categories";
+import { replaceEventCategoryLinks, validateCategoryIds } from "@/lib/event-category-write";
 
 type Ctx = { params: { id: string } };
 
@@ -13,7 +15,7 @@ export async function GET(_request: Request, context: Ctx) {
     const supabase = createClient();
     const { data, error } = await supabase
       .from("events")
-      .select("*")
+      .select(`*, ${EVENT_CATEGORY_LINKS_SELECT}`)
       .eq("id", id)
       .single();
 
@@ -32,7 +34,7 @@ type PatchBody = Partial<
     Database["public"]["Tables"]["events"]["Update"],
     "organizer_id" | "id" | "created_at"
   >
->;
+> & { category_ids?: string[] };
 
 export async function PATCH(request: Request, context: Ctx) {
   try {
@@ -62,6 +64,7 @@ export async function PATCH(request: Request, context: Ctx) {
     if (body.description !== undefined) patch.description = body.description;
     if (body.proposal_file_url !== undefined)
       patch.proposal_file_url = body.proposal_file_url;
+    if (body.cover_image_url !== undefined) patch.cover_image_url = body.cover_image_url;
     if (body.start_at !== undefined) patch.start_at = body.start_at;
     if (body.end_at !== undefined) patch.end_at = body.end_at;
     if (body.venue !== undefined) patch.venue = body.venue;
@@ -79,12 +82,33 @@ export async function PATCH(request: Request, context: Ctx) {
     if (body.social_caption_staging !== undefined)
       patch.social_caption_staging = body.social_caption_staging;
 
-    const { data, error } = await supabase
-      .from("events")
-      .update(patch)
-      .eq("id", id)
-      .select("*")
-      .single();
+    let categoryIdsToApply: string[] | null = null;
+    if (body.category_ids !== undefined) {
+      const catCheck = await validateCategoryIds(supabase, body.category_ids);
+      if (!catCheck.ok) {
+        return NextResponse.json({ error: catCheck.error }, { status: 400 });
+      }
+      categoryIdsToApply = catCheck.ids;
+    }
+
+    const patchEmpty = Object.keys(patch).length === 0;
+
+    if (patchEmpty && !categoryIdsToApply) {
+      return NextResponse.json({ error: "no fields to update" }, { status: 400 });
+    }
+
+    const { data, error } = patchEmpty
+      ? await supabase
+          .from("events")
+          .select(`*, ${EVENT_CATEGORY_LINKS_SELECT}`)
+          .eq("id", id)
+          .single()
+      : await supabase
+          .from("events")
+          .update(patch)
+          .eq("id", id)
+          .select(`*, ${EVENT_CATEGORY_LINKS_SELECT}`)
+          .single();
 
     if (error || !data) {
       return NextResponse.json(
@@ -93,15 +117,41 @@ export async function PATCH(request: Request, context: Ctx) {
       );
     }
 
-    if (existing.is_draft && data.is_draft === false) {
+    if (categoryIdsToApply) {
+      const linkRes = await replaceEventCategoryLinks(supabase, id, categoryIdsToApply);
+      if (!linkRes.ok) {
+        return NextResponse.json({ error: linkRes.error }, { status: 400 });
+      }
+    }
+
+    const { data: finalRow, error: reloadErr } = await supabase
+      .from("events")
+      .select(`*, ${EVENT_CATEGORY_LINKS_SELECT}`)
+      .eq("id", id)
+      .single();
+
+    const out = !reloadErr && finalRow ? finalRow : data;
+
+    if (existing.is_draft && out.is_draft === false) {
+      const { data: organizerProfile } = await supabase
+        .from("profiles")
+        .select("full_name, whatsapp_number, whatsapp_consent")
+        .eq("id", out.organizer_id)
+        .single();
+
       void triggerWebhook("event-published", {
-        event_id: data.id,
-        title: data.title,
-        organizer_id: data.organizer_id,
+        event_id: out.id,
+        title: out.title,
+        organizer_id: out.organizer_id,
+        organizer_full_name: organizerProfile?.full_name ?? null,
+        organizer_whatsapp:
+          organizerProfile?.whatsapp_consent && organizerProfile?.whatsapp_number
+            ? organizerProfile.whatsapp_number
+            : null,
       });
     }
 
-    return NextResponse.json({ event: data });
+    return NextResponse.json({ event: out });
   } catch (e) {
     return jsonError(e);
   }
