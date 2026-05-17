@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { requireApprovedOrganizer } from "@/lib/auth/guards";
-import { triggerWebhook } from "@/lib/n8n";
+import { buildEventPublishedPayload, triggerWebhook } from "@/lib/n8n";
 import type { Database, Json } from "@/lib/db/database.types";
 import { jsonError } from "@/lib/http/json-error";
 import { EVENT_CATEGORY_LINKS_SELECT } from "@/lib/event-categories";
@@ -133,22 +133,14 @@ export async function PATCH(request: Request, context: Ctx) {
     const out = !reloadErr && finalRow ? finalRow : data;
 
     if (existing.is_draft && out.is_draft === false) {
-      const { data: organizerProfile } = await supabase
-        .from("profiles")
-        .select("full_name, whatsapp_number, whatsapp_consent")
-        .eq("id", out.organizer_id)
-        .single();
-
-      void triggerWebhook("event-published", {
-        event_id: out.id,
-        title: out.title,
-        organizer_id: out.organizer_id,
-        organizer_full_name: organizerProfile?.full_name ?? null,
-        organizer_whatsapp:
-          organizerProfile?.whatsapp_consent && organizerProfile?.whatsapp_number
-            ? organizerProfile.whatsapp_number
-            : null,
-      });
+      void triggerWebhook(
+        "event-published",
+        await buildEventPublishedPayload(supabase, {
+          id: out.id,
+          title: out.title,
+          organizer_id: out.organizer_id,
+        }),
+      );
     }
 
     return NextResponse.json({ event: out });
